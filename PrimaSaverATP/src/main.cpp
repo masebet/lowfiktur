@@ -26,6 +26,14 @@
 #define ModIN_RS485_pin 13
 #define ModOUT_RS485_pin 10
 #define PinResetSIM900A 9
+
+#define WBP_IN    20
+#define LWBP_IN   22
+#define WBP_OUT   24
+#define LWBP_OUT  26
+#define EID_IN    1
+#define EID_OUT   11
+
 SoftwareSerial ModIN(ModIN_rxPin, ModIN_txPin);
 
 unsigned long   currentMillis                  =0;
@@ -48,6 +56,7 @@ String  modbuskwh_IN      ="";
 String  Datakwh_IN1       ="";
 String  Datakwh_IN2       ="";
 
+//nc 183.91.67.211 15055
 String  IPADDRESS         ="183.91.67.211";
 String  PORT              ="15055";
 String  APN               ="internet";
@@ -86,7 +95,7 @@ boolean getmodbus         =false;
 boolean SendDataKWH_IN    =false;
 boolean SendDataKWH_OUT   =false;
 boolean sender            =false;
-#define S1debug true
+#define S1debug 1
 
 
 void RecieveMessage();
@@ -102,6 +111,7 @@ void GETmodbus();
 // void sendData2OUT2();
 // void responeKWHOUT2();
 void send2server();
+void send2serverEbet();
 void SendCommand(String command, const int timeout, boolean debug);
 void SendCipSend(String command, const int timeout, boolean debug);
 void Timeout();
@@ -118,10 +128,10 @@ RTC_DS3231 rtc;
 //setup
 void setup() {
 
-  Serial.begin(9600);
-  Serial1.begin(9600);//modbus KWH OUTGOING
-  Serial2.begin(9600);//SIM900
-  ModIN.begin(9600);//modbus KWH INCOMING
+  Serial.begin(9600);   //debug
+  Serial1.begin(9600);  //modbus KWH OUTGOING
+  Serial2.begin(9600);  //SIM900
+  ModIN.begin(9600);    //modbus KWH INCOMING
 
   delay(1000);
   pinMode(ModIN_RS485_pin, OUTPUT);
@@ -135,7 +145,7 @@ void setup() {
   digitalWrite(PinResetSIM900A, HIGH);
   delay(5000);
 
-  wdt_enable(WDTO_8S);//timeout watchdog timer 8 second
+  //wdt_enable(WDTO_8S);  //timeout watchdog timer 8 second
   
   Serial.println("Modem Prima Saver v.07");
   Serial.print("FIRMWARE VERSION:");Serial.println(FV);
@@ -143,47 +153,43 @@ void setup() {
   SendCommand("AT+CMGF=1\r",500,S1debug);
   SendCommand("AT+CNMI=3,3,0,0,0\r",500,S1debug);
   SendCommand("AT+CMGD=1,4\r",500,S1debug);
-  //===================================================================//
-  // proses_api.tulisEprom(1,"CR1");
-  // proses_api.tulisEprom(11,"CR2");
-  
-  //read adres 0-9 (ID INCOMING)
-  ID_IN = proses_api.bacaDataEprom(1);
-  Serial.print("ID_IN:");Serial.println(ID_IN);//Serial.println("<=");
-  //read adres 0-9 (ID INCOMING)
 
-  //read adres 10-19 (ID OUTGOING)
-  ID_OUT = proses_api.bacaDataEprom(11);
-  Serial.print("ID_OUT:");Serial.println(ID_OUT);//Serial.println("<=");
-  //read adres 10-19 (ID OUTGOING)
-  
   //===================================================================//
-  // proses_api.tulisEprom(20,200);       //WBP   IN
-  // proses_api.tulisEprom(22,200);       //LWBP  IN
-  // proses_api.tulisEprom(24,200);       //WBP   OUT
-  // proses_api.tulisEprom(26,200);       //LWBP  OUT
-  // Serial.println(printHex(proses_api.bacaDataEprom(21).toInt(),8));
+  proses_api.tulisEprom(EID_IN,"ED1");
+  proses_api.tulisEprom(EID_OUT,"ED2");
   
-
+  ID_IN = proses_api.bacaDataEprom(EID_IN);
+  Serial.print("ID_IN:");Serial.println(ID_IN);
+  
+  ID_OUT = proses_api.bacaDataEprom(EID_OUT);
+  Serial.print("ID_OUT:");Serial.println(ID_OUT);
+   
    rtc.begin();
+  //  rtc.adjust(DateTime(2020, 3, 10, 11, 13, 0));
+  
+  //===============//test bug//===============//
+  // while(1){
+  //     GETmodbus();
+  //     send2serverEbet();
+  // }
 
-  //rtc.adjust(DateTime(2020, 3, 4, 16, 14, 0));    //For example to set January 27 2017 at 12:56 you would call
 }
 
 //loop
 void loop() {
   wdt_reset();
   
-  RecieveMessage(); 
-  TimetoSend();
-  SHUTBERKALA();
+  RecieveMessage();     //  jika ada sms masuk
+  TimetoSend();         //  Timer untuk ambil hapus sms dan flag ambil data modbus
+  SHUTBERKALA();        //  Timer state 8
   
-  if (getmodbus){
-      GETmodbus();
-      getmodbus=false;
-    }
-    
-  send2server();
+  if (getmodbus){       //  youNowLah
+      GETmodbus();      //
+      getmodbus=false;  //
+      send2serverEbet();// 
+  }                     //
+      
+  //send2server();
   
   FM="";
   FM.concat(freeMemory());
@@ -193,11 +199,10 @@ void loop() {
 
   Serial.print("freeMemory()="); Serial.println(FM);
   Serial.println();
-  }//loop
+}//loop
   
 
-// =======================================================================================//
-//RecieveMessage
+
 void RecieveMessage(){
   wdt_reset();
   
@@ -291,16 +296,11 @@ void RecieveMessage(){
     }
     Key="";
   } 
- }//RecieveMessage
+}//RecieveMessage()
 
- 
-
-//TimetoSend
-void TimetoSend(){//timer waktu ambil data dari kwh dan kirim ke server
-  wdt_reset();
-  
+void TimetoSend(){
+  wdt_reset();  
   currentMillis = millis();
-  //Serial.print("===========waktu:");Serial.println(currentMillis-previousMillis);
   if (currentMillis - previousMillis > 60000) {//1 menit
     Serial.println("time to send");
     Serial.println("Delete SMS Berkala per 1 menit");
@@ -310,22 +310,18 @@ void TimetoSend(){//timer waktu ambil data dari kwh dan kirim ke server
     sinc=true;
     previousMillis = currentMillis;
   }
-}//TimetoSend
+}//TimetoSend()
 
-//SHUTBERKALA
 void SHUTBERKALA(){
   wdt_reset();
-
   currentMillisSHUT = millis();
-  //Serial.print("^^^^TimeSHUT:");Serial.println(currentMillisSHUT - previousMillisSHUT);
   if (currentMillisSHUT - previousMillisSHUT > 300000) {//5 menit
     Serial.println("SHUT BERKALA");
     previousMillisSHUT = currentMillisSHUT;
     state=8;
   }  
-}//SHUTBERKALA
+}//SHUTBERKALA()
 
-//GETmodbus
 void GETmodbus(){
   wdt_reset();
   
@@ -362,329 +358,10 @@ void GETmodbus(){
    Serial.print("modbuskwh_OT:");Serial.println(modbuskwh_OUT);
    SendDataKWH_IN         =true;
    SendDataKWH_OUT        =true;
-}//GETmodbus
+}//GETmodbus()
 
-/*
-  ///////////INCOMING 
-  //sendData2IN1
-  void sendData2IN1() {
-    wdt_reset();
-    
-    Serial.println("send data IN1 0-22");
-    digitalWrite(ModIN_RS485_pin, HIGH);
-    delay(1);
-    for (char i = 0; i < 8; i++) {
-      wdt_reset();
-      ModIN.write(data_IN1[i]);
-      delay(1);
-      Serial.print(data_IN1[i], HEX);
-      Serial.print(" ");
-    }
-    Serial.println();
-    digitalWrite(ModIN_RS485_pin, LOW);
-    delay(1);
-    }//sendData2IN1
-
-  //responeKWHIN1
-  void responeKWHIN1 () {
-    wdt_reset();
-    
-    Reply         ="";
-    modbuskwh_IN  ="";
-    Datakwh_IN1   ="";
-    Buffer        ="";
-    BufferData    = "";
-
-    while (ModIN.available() > 0) {
-        byte b = ModIN.read();
-        Reply += String (b, HEX);
-        if (Reply.length() < 2) {
-          modbuskwh_IN += "0";
-          modbuskwh_IN.concat(Reply);
-        }
-        else {
-          modbuskwh_IN.concat(Reply);
-        }
-        Reply = "";
-      }
-    //    Serial.print("modbuskwh_IN:");Serial.print(modbuskwh_IN);Serial.print("<=");
-    //    Serial.println();
-      
-    //sortir Slave ID
-    Buffer = "";
-    Buffer = modbuskwh_IN.substring(0,6);
-    Buffer.trim();
-    //Serial.print(Buffer);
-    //sortir Slave ID
-      
-    //validasi data INCOMING (01)
-    if (Buffer == "01032c") {
-      //Datakwh_IN1+="@";
-      Datakwh_IN1.concat (ID_IN);
-      //Datakwh_IN1+="#";
-        
-      //sortir 9 data
-      BufferData = "";
-      BufferData = modbuskwh_IN.substring(6,78);
-      Datakwh_IN1.concat (BufferData);
-
-      //sortir 1 data WS
-      BufferData = "";
-      BufferData = modbuskwh_IN.substring(86,94);
-      Datakwh_IN1.concat (BufferData);
-        
-      MOBI[0]="";
-      MOBI[0]+="V";
-    }
-    else{
-      //Datakwh_IN1+="@";
-      Datakwh_IN1.concat (ID_IN);
-      //Datakwh_IN1+="#";
-      Datakwh_IN1+="EMPTY";
-      MOBI[0]="";
-      MOBI[0]+="NV";
-      }//validasi data INCOMING (01)
-
-    Serial.println(Datakwh_IN1);
-    Serial.println();
-    }//responeKWHIN1
-
-  //sendData2IN2
-  void sendData2IN2() {
-    wdt_reset();
-    
-    Serial.println("send data IN2 25-42");
-    digitalWrite(ModIN_RS485_pin, HIGH);
-    delay(1);
-    for (char i = 0; i < 8; i++) {
-      wdt_reset();
-      ModIN.write(data_IN2[i]);
-      delay(1);
-      Serial.print(data_IN2[i], HEX);
-      Serial.print(" ");
-    }
-
-    Serial.println();
-    digitalWrite(ModIN_RS485_pin, LOW);
-    delay(1);
-    }//sendData2IN2
-
-  //responeKWHIN2
-  void responeKWHIN2 () {
-    wdt_reset();
-    
-    Reply         ="";
-    modbuskwh_IN  ="";
-    Datakwh_IN2   ="";
-    Buffer        ="";
-    BufferData    ="";
-
-    while (ModIN.available() > 0) {
-        byte b = ModIN.read();
-        Reply += String (b, HEX);
-        if (Reply.length() < 2) {
-          modbuskwh_IN += "0";
-          modbuskwh_IN.concat(Reply);
-        }
-        else {
-          modbuskwh_IN.concat(Reply);
-        }
-        Reply = "";
-      }
-      //Serial.print(modbuskwh_IN);
-      //Serial.println();
-      
-    //sortir Slave ID
-    Buffer = "";
-    Buffer = modbuskwh_IN.substring(0,6);
-    Buffer.trim();
-    //Serial.print(Buffer);
-    //sortir Slave ID
-      
-    //validasi data INCOMING (01)
-    if (Buffer == "010324") {    
-      //sortir 9 data
-      BufferData = "";
-      BufferData = modbuskwh_IN.substring(6,78);
-      Datakwh_IN2.concat (BufferData);
-      //Datakwh_IN2+="--";
-      MOBI[1]="";
-      MOBI[1]+="V";
-    }
-    else{
-      Datakwh_IN2+="EMPTY";
-      MOBI[1]="";
-      MOBI[1]+="NV";
-    }
-      //validasi data INCOMING (01)
-
-    Serial.println(Datakwh_IN2);
-    Serial.println();
-  }//responeKWHIN2
-  ///////////INCOMING 
-    
-  ///////////OUTGOING 
-  //sendData2OUT1
-  void sendData2OUT1() {
-    wdt_reset();
-    
-    Serial.println("send data OUT1 0-22");
-    digitalWrite(ModOUT_RS485_pin, HIGH);
-    delay(1);
-    for (char i = 0; i < 8; i++) {
-      wdt_reset();
-      Serial1.write(data_OUT1[i]);
-      delay(1);
-      Serial.print(data_OUT1[i], HEX);
-      Serial.print(" ");
-    }
-
-    Serial.println();
-    digitalWrite(ModOUT_RS485_pin, LOW);
-    delay(1);
-  }//sendData2OUT1
-  //responeKWHOUT1
-  void responeKWHOUT1 () {
-    wdt_reset();
-    
-    Reply         ="";
-    modbuskwh_OUT ="";
-    Datakwh_OUT1  ="";
-    Buffer        ="";
-    BufferData    = "";
-
-    while (Serial1.available() > 0) {
-        byte b = Serial1.read();
-        Reply += String (b, HEX);
-        if (Reply.length() < 2) {
-          modbuskwh_OUT += "0";
-          modbuskwh_OUT.concat(Reply);
-        }
-        else {
-          modbuskwh_OUT.concat(Reply);
-        }
-        Reply = "";
-      }
-    //    Serial.print("modbuskwh_OUT:");Serial.print(modbuskwh_OUT);Serial.print("<=");
-    //    Serial.println();
-          
-    //sortir Slave ID
-    Buffer = "";
-    Buffer = modbuskwh_OUT.substring(0,6);
-    Buffer.trim();
-    //Serial.print(Buffer);
-    //sortir Slave ID
-      
-    //validasi data OUTGOING (02)
-    if (Buffer == "02032c") {
-      //Datakwh_OUT1+="@";
-      Datakwh_OUT1.concat (ID_OUT);
-      //Datakwh_OUT1+="#";
-        
-      //sortir 9 data
-      BufferData = "";
-      BufferData = modbuskwh_OUT.substring(6,78);
-      Datakwh_OUT1.concat (BufferData);
-
-      //sortir 1 data WS
-      BufferData = "";
-      BufferData = modbuskwh_OUT.substring(86,94);
-      Datakwh_OUT1.concat (BufferData);
-      MOBO[0]="";
-      MOBO[0]+="V";      
-      }
-    else{
-      //Datakwh_OUT1+="@";
-      Datakwh_OUT1.concat (ID_OUT);
-      //Datakwh_OUT1+="#";
-      Datakwh_OUT1+="EMPTY";
-      MOBO[0]="";
-      MOBO[0]+="NV";
-      }//validasi data OUTGOING (02)
-
-      Serial.println(Datakwh_OUT1);
-      Serial.println();
-    }//responeKWHOUT1
-
-        
-  //sendData2OUT2
-  void sendData2OUT2() {
-    wdt_reset();
-    
-    Serial.println("send data OUT2 25-42");
-    digitalWrite(ModOUT_RS485_pin, HIGH);
-    delay(1);
-    for (char i = 0; i < 8; i++) {
-      wdt_reset();
-      Serial1.write(data_OUT2[i]);
-      delay(1);
-      Serial.print(data_OUT2[i], HEX);
-      Serial.print(" ");
-    }
-
-    Serial.println();
-    digitalWrite(ModOUT_RS485_pin, LOW);
-    delay(1);
-    }//sendData2OUT2
-  //responeKWHOUT2
-  void responeKWHOUT2 () {
-    wdt_reset();
-    
-    Reply         ="";
-    modbuskwh_OUT ="";
-    Datakwh_OUT2  ="";
-    Buffer        ="";
-    BufferData    = "";
-
-      while (Serial1.available() > 0) {
-        byte b = Serial1.read();
-        Reply += String (b, HEX);
-        if (Reply.length() < 2) {
-          modbuskwh_OUT += "0";
-          modbuskwh_OUT.concat(Reply);
-        }
-        else {
-          modbuskwh_OUT.concat(Reply);
-        }
-        Reply = "";
-      }
-      //Serial.print(modbuskwh_OUT);
-      //Serial.println();
-      
-      //sortir Slave ID
-      Buffer = "";
-      Buffer = modbuskwh_OUT.substring(0,6);
-      Buffer.trim();
-      //Serial.print(Buffer);
-      //sortir Slave ID
-      
-      //validasi data OUTGOING (02)
-      if (Buffer == "020324") {   
-        //sortir 9 data
-        BufferData = "";
-        BufferData = modbuskwh_OUT.substring(6,78);
-        Datakwh_OUT2.concat (BufferData);
-        //Datakwh_OUT2+="++";
-        MOBO[1]="";
-        MOBO[1]+="V";
-      }
-      else {
-        Datakwh_OUT2+="EMPTY";
-        MOBO[1]="";
-        MOBO[1]+="NV";      
-      }//validasi data OUTGOING (02)
-
-      Serial.println(Datakwh_OUT2);
-      Serial.println();
-    }//responeKWHOUT2
-  ///////////OUTGOING  
-*/
-
-//=========================================================================================//
-//send2server
 void send2server(){
   wdt_reset();
-  
   switch(state){
     case 0:
     SendCommand("AT+CPIN?",250,S1debug);
@@ -759,17 +436,61 @@ void send2server(){
     state=0;
     break;
   }
-}
+}//send2server()
 
-//SendCommand
+void send2serverEbet(){
+    //Sent incoming
+    SendCommand("AT",250,S1debug);
+    SendCommand("AT+CPIN?",250,S1debug);
+    SendCommand("AT+CSQ",500,S1debug);
+    SendCommand("AT+CREG?",500,S1debug);
+    SendCommand("AT+CGATT=1",1000,S1debug);
+    SendCommand("AT+CSTT=\""+APN+"\",\"\",\"\"",2000,S1debug);
+    SendCommand("AT+CIICR",2000,S1debug);
+    SendCommand("AT+CIFSR",2000,S1debug);
+    SendCommand("AT+CIPSTART=\"TCP\",\""+IPADDRESS+"\",\""+PORT+"\"",2000,S1debug);
+    SendCommand("AT+CIPSTATUS",2000,S1debug);
+    SendCommand("AT+CIPSEND",1000,S1debug);
+    SendCommand(modbuskwh_IN,1000,S1debug);
+    SendCipSend(String ((char)26),6000,S1debug);
+    SendCommand("AT+CIPSHUT",1000,S1debug);
+    //Sent OutGing
+    SendCommand("AT",250,S1debug);
+    SendCommand("AT+CPIN?",250,S1debug);
+    SendCommand("AT+CSQ",500,S1debug);
+    SendCommand("AT+CREG?",500,S1debug);
+    SendCommand("AT+CGATT=1",1000,S1debug);
+    SendCommand("AT+CSTT=\""+APN+"\",\"\",\"\"",2000,S1debug);
+    SendCommand("AT+CIICR",2000,S1debug);
+    SendCommand("AT+CIFSR",2000,S1debug);
+    SendCommand("AT+CIPSTART=\"TCP\",\""+IPADDRESS+"\",\""+PORT+"\"",2000,S1debug);
+    SendCommand("AT+CIPSTATUS",2000,S1debug);
+    SendCommand("AT+CIPSEND",1000,S1debug);
+    SendCommand(modbuskwh_OUT,1000,S1debug);
+    SendCipSend(String ((char)26),6000,S1debug);
+    SendCommand("AT+CIPSHUT",1000,S1debug);
+}//send2serverEbet()
+
 void SendCommand(String command, const int timeout, boolean debug){
-  wdt_reset();
-    
-  Reply = ""; 
-      
+  Reply = "";       
   Serial2.println(command); 
-  if (command=="AT+CPIN?")
-    {
+  delay(timeout);
+  if(Serial2.available()){ Reply = Serial2.readString(); }
+  
+  if(Reply.indexOf("CSQ")>0){ Serial.println(Reply); }
+  
+  if(Reply.indexOf("ERROR")>0)    { Serial.print(command); Serial.println("\t\t\t\tERROR"); }
+  else if (Reply.indexOf("OK")>0) { Serial.print(command); Serial.println("\t\t\t\tOK");    }
+  else { Serial.print(Reply); Serial.println("\t\t\t\tCOMPLETE"); }
+}//SendCommand()
+
+
+/*
+void SendCommand(String command, const int timeout, boolean debug){
+  wdt_reset();    
+  Reply = ""; 
+  Serial2.println(command); 
+  if (command=="AT+CPIN?"){
      cpin="";
      if(debug){
      long int time = millis();   
@@ -786,19 +507,11 @@ void SendCommand(String command, const int timeout, boolean debug){
        LI=Reply.indexOf('Y',FI);
        cpin=Reply.substring(FI+6,LI+1);
        cpin.trim();
-       if (cpin=="READY"){
-        cpin="";
-        cpin+="READY";
-       }
-       else{
-        cpin="";
-        cpin+="UNREADY";        
-       }
+       if (cpin=="READY"){cpin="READY";}else{cpin="UNREADY";}
        Serial.print("respon CPIN:");
        Serial.println(cpin);
      } 
     }
-    
   else if(command=="AT+CSQ"){
       csq="";
       if(debug){
@@ -820,7 +533,6 @@ void SendCommand(String command, const int timeout, boolean debug){
        Serial.println(csq);
      } 
     } 
-    
   else if(command=="AT+CIPSTATUS")
     {
      cipstatus="";
@@ -843,7 +555,6 @@ void SendCommand(String command, const int timeout, boolean debug){
        Serial.println(cipstatus);//Serial.println("<==END");
      }
     }
-    
   else{  
       if(debug){
         long int time = millis();   
@@ -856,9 +567,9 @@ void SendCommand(String command, const int timeout, boolean debug){
        Serial.println(Reply);
       } 
      } 
-}//SendCommand
+}//SendCommand()
+*/
 
-//SendCipSend
 void SendCipSend(String command, const int timeout, boolean debug){
   wdt_reset();
      
@@ -886,10 +597,9 @@ void SendCipSend(String command, const int timeout, boolean debug){
     Serial.print("response cipsend:");
     Serial.print(respondsend);Serial.println("<==END");
   } 
-}//SendCipSend
+}//SendCipSend()
 
-//Timeout
-void Timeout(){//buat membatasi waktu pengiriman
+void Timeout(){
   wdt_reset();
   
   if (sinc){
@@ -897,18 +607,15 @@ void Timeout(){//buat membatasi waktu pengiriman
     sinc=false;
   }
   currentMillisTimeout = millis();
-  //Serial.print("++++++TimeOut:");Serial.println(currentMillisTimeout - previousMillisTimeout);
   if (currentMillisTimeout - previousMillisTimeout > 30000) {//0.5 menit
     Serial.println("time out send");
     TTS=false;
     getmodbus=false;
     previousMillisTimeout = currentMillisTimeout;
   }
-}//Timeout
+}//Timeout()
 
-
-//READYSEND
-void READYSEND(){//ini fungsi send data ke server  
+void READYSEND(){
   wdt_reset();
   
   if(SendDataKWH_IN){
@@ -927,7 +634,6 @@ void READYSEND(){//ini fungsi send data ke server
   
   if(SendDataKWH_OUT){
     SendCommand("AT+CIPSEND",1000,S1debug);
-    //SendCommand(Datakwh_OUT1,2000,S1debug);
     SendCommand(modbuskwh_OUT,2000,S1debug);
     SendCipSend(String ((char)26),6000,S1debug); 
     Serial.println("SEND Datakwh_OUT"); 
@@ -944,9 +650,8 @@ void READYSEND(){//ini fungsi send data ke server
     TTS=false;
     Serial.println("ALL DATA SEND SUCCES");
   }
-}//READYSEND
+}//READYSEND()
 
-//SendMessage
 void SendMessage(){
   wdt_reset();
   
@@ -954,15 +659,15 @@ void SendMessage(){
   
   if (sender){
       if (KodeSMS=="LIST"){
-        ResponeSMS+="SNI:";ResponeSMS.concat(ID_IN);
-        ResponeSMS+="\nSNO:";ResponeSMS.concat(ID_OUT);
-        ResponeSMS+="\nSIM:";ResponeSMS.concat(cpin);
-        ResponeSMS+="\nSQ :";ResponeSMS.concat(csq);
-        ResponeSMS+="\nSTA:";ResponeSMS.concat(cipstatus);
-        ResponeSMS+="\nMBI:";ResponeSMS.concat(MOBI[0]);ResponeSMS+=" ";ResponeSMS.concat(MOBI[1]);
-        ResponeSMS+="\nMBO:";ResponeSMS.concat(MOBO[0]);ResponeSMS+=" ";ResponeSMS.concat(MOBO[1]);
-        ResponeSMS+="\nFM :";ResponeSMS.concat(FM);
-        ResponeSMS+="\nFV :";ResponeSMS.concat(FV);
+        ResponeSMS+="SNI:";   ResponeSMS.concat(ID_IN);
+        ResponeSMS+="\nSNO:"; ResponeSMS.concat(ID_OUT);
+        ResponeSMS+="\nSIM:"; ResponeSMS.concat(cpin);
+        ResponeSMS+="\nSQ :"; ResponeSMS.concat(csq);
+        ResponeSMS+="\nSTA:"; ResponeSMS.concat(cipstatus);
+        ResponeSMS+="\nMBI:"; ResponeSMS.concat(MOBI[0]);ResponeSMS+=" ";ResponeSMS.concat(MOBI[1]);
+        ResponeSMS+="\nMBO:"; ResponeSMS.concat(MOBO[0]);ResponeSMS+=" ";ResponeSMS.concat(MOBO[1]);
+        ResponeSMS+="\nFM :"; ResponeSMS.concat(FM);
+        ResponeSMS+="\nFV :"; ResponeSMS.concat(FV);
         
         SendCommand("AT+CMGS=\""+sender_phone+"\"",1000,S1debug);
         SendCommand(ResponeSMS,500,S1debug);
@@ -976,8 +681,8 @@ void SendMessage(){
         //tulis dulu SNI (Serial Number Incoming) pada EEPROM
     
         //kemudian bales smsnya
-        ResponeSMS+="SNI:";ResponeSMS.concat(ID_IN);
-        ResponeSMS+="\nSNO:";ResponeSMS.concat(ID_OUT);
+        ResponeSMS+="SNI:";   ResponeSMS.concat(ID_IN+konversi::toIEEE(posix_get_2_Register(0x01,0x04,0x0578,0x0002)));
+        ResponeSMS+="\nSNO:"; ResponeSMS.concat(ID_OUT+konversi::toIEEE(posix_get_2_Register0(0x02,0x04,0x0578,0x0002)));
         
         SendCommand("AT+CMGS=\""+sender_phone+"\"",1000,S1debug);
         SendCommand(ResponeSMS,500,S1debug);
@@ -989,8 +694,8 @@ void SendMessage(){
     
       else if(KodeSMS=="IPRESET"){
         //balas dulu sms baru reset
-        ResponeSMS+="SNI:"; ResponeSMS.concat(ID_IN);
-        ResponeSMS+="\nSNO:";ResponeSMS.concat(ID_OUT);
+        ResponeSMS+="SNI:"; ResponeSMS.concat(ID_IN+konversi::toIEEE(posix_get_2_Register(0x01,0x04,0x0578,0x0002)));
+        ResponeSMS+="\nSNO:";ResponeSMS.concat(ID_OUT+konversi::toIEEE(posix_get_2_Register0(0x02,0x04,0x0578,0x0002)));
         ResponeSMS+="\nRESET SISTEM";
         
         SendCommand("AT+CMGS=\""+sender_phone+"\"",1000,S1debug);
@@ -1002,9 +707,8 @@ void SendMessage(){
         delay (20000);
       }
   }
-}//SendMessage
+}//SendMessage()
 
-//resetSIM
 void ResetSim900A(){ 
   wdt_reset();
   
@@ -1016,4 +720,4 @@ void ResetSim900A(){
   delay(4000);
   Resetsim=false;
   }
-}//resetSIM
+}//ResetSim900A()

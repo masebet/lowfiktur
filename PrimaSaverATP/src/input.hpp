@@ -5,8 +5,8 @@ String printHexDate(uint32_t num, int precision);
   String
   tools_getDate()
   {
-    DateTime now      = rtc.now();
-    return printHexDate(now.unixtime(),8);
+    DateTime now = rtc.now();
+    return printHexDate(now.unixtime()-820454400,8); //data dikurangi 26 tahun
   }
 
   int
@@ -72,17 +72,17 @@ printHexDate(uint32_t num, int precision)
      String out;
      char tmp[16];
      char format[32];
-     sprintf(format, "%%.%dX", precision/2);
-     sprintf(tmp, format, num>>16);
-     out=tmp;
-     sprintf(format, "%%.%dX", precision/2);
+     sprintf(format, "%%.%dx", precision/2);
      sprintf(tmp, format, num);
+     out=tmp;
+     sprintf(format, "%%.%dx", precision/2);
+     sprintf(tmp, format, num>>16);
      out+=tmp;
   return out;
 }
 
 //=================================================================================================
-String
+float
 posix_get_2_Register(uint8_t addres,uint8_t func,uint16_t reg,uint16_t reg2){
   uint8_t sent;
   uint8_t crcCalc[7];
@@ -125,11 +125,18 @@ posix_get_2_Register(uint8_t addres,uint8_t func,uint16_t reg,uint16_t reg2){
     index++;
   }
   
-  String out="";
-  if(crc16(dataIn,6)==int((dataIn[8]<<8)|dataIn[7])){
-    out = printHex(dataIn[3], 2)+printHex(dataIn[4], 2)+printHex(dataIn[5], 2)+printHex(dataIn[6], 2);
+  float out;
+  if(crc16(dataIn,6) == int((dataIn[8]<<8)|dataIn[7])){
+      uint32_t dataOut = (uint32_t)dataIn[3]|(uint32_t)dataIn[4]<<8|(uint32_t)dataIn[5]<<16|(uint32_t)dataIn[6]<<24;
+      out = (float) dataOut;
     }else{
-      out = "nullData"; 
+      out = 0x0;
+      // dataIn[3] = 0x00;
+      // dataIn[4] = 0x10;
+      // dataIn[5] = 0x00;
+      // dataIn[6] = 0x00;
+      // uint32_t dataOut = (uint32_t)dataIn[3]|(uint32_t)dataIn[4]<<8|(uint32_t)dataIn[5]<<16|(uint32_t)dataIn[6]<<24;
+      // out = (float) dataOut;
     }
   return out;
 }
@@ -147,52 +154,51 @@ input_getDataSensor()
   uint8_t adress  = 0x01;
   String out = ID_IN;
 
-  out += posix_get_2_Register(adress,0x04,0x0578,0x0002); 
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x04,0x0578,0x0002)); 
   out += tools_getDate(); 
-  out += posix_get_2_Register(adress,0x03,0x00dc,0x0002);   // kWh    //circutor  5e-5f + 88-89 + b2-b3 = dc-dd
-  out += posix_get_2_Register(adress,0x03,0x0030,0x0002);   // kW     //aktiv power
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x00dc,0x0002));   // kWh    //circutor  5e-5f + 88-89 + b2-b3 = dc-dd
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0030,0x0002));   // kW     //aktiv power
 
   if(tools_tarif()=="WBP"){
   // WBP  = KWHTOT-LWBP;
-      proses_api.tulisEprom(20,posix_get_2_Register(adress,0x03,0x00dc,0x0002).toDouble() - proses_api.bacaDataEprom(22).toDouble());
+      proses_api.tulisEprom(
+        WBP_IN,String(posix_get_2_Register(adress,0x03,0x00dc,0x0002) - proses_api.bacaDataEprom(LWBP_IN).toFloat())
+        );
   }else{
   // LWBP = KWHTOT-WBP;
-      proses_api.tulisEprom(22,posix_get_2_Register(adress,0x03,0x00dc,0x0002).toDouble() - proses_api.bacaDataEprom(20).toDouble());
-  }
-    
-  out += printHex(proses_api.bacaDataEprom(20).toDouble(),8);
-  out += printHex(proses_api.bacaDataEprom(22).toDouble(),8);
-  
-  out += posix_get_2_Register(adress,0x03,0x0002,0x0002);   // A
-  out += posix_get_2_Register(adress,0x03,0x0012,0x0002);   // A
-  out += posix_get_2_Register(adress,0x03,0x0022,0x0002);   // A
+      proses_api.tulisEprom(
+        LWBP_IN,String(posix_get_2_Register(adress,0x03,0x00dc,0x0002) - proses_api.bacaDataEprom(WBP_IN).toFloat())
+        );
+  } 
 
-  out += posix_get_2_Register(adress,0x03,0x003c,0x0002);///100.0;   // Hz
-
-  out += posix_get_2_Register(adress,0x03,0x0032,0x0002);   // kVAR   //reaktiv power
-  out += posix_get_2_Register(adress,0x03,0x0036,0x0002);   // kVA    //aperent power
-  
-  out += posix_get_2_Register(adress,0x03,0x003e,0x0002);///10.0;  // V
-  out += posix_get_2_Register(adress,0x03,0x0040,0x0002);///10.0;  // V
-  out += posix_get_2_Register(adress,0x03,0x0042,0x0002);///10.0;  // V
-                                            // aktif-opwer
-  out += posix_get_2_Register(adress,0x03,0x0004,0x0002);     // kW
-  out += posix_get_2_Register(adress,0x03,0x0014,0x0002);     // kW
-  out += posix_get_2_Register(adress,0x03,0x0024,0x0002);     // kW
-                                          // reaktif-power
-  out += posix_get_2_Register(adress,0x03,0x0006,0x0002);   // kVAR
-  out += posix_get_2_Register(adress,0x03,0x0016,0x0002);   // kVAR
-  out += posix_get_2_Register(adress,0x03,0x0026,0x0002);   // kVAR
-                                          // aperent-power
-  out += posix_get_2_Register(adress,0x03,0x000a,0x0002);   // kVA
-  out += posix_get_2_Register(adress,0x03,0x001a,0x0002);   // kVA
-  out += posix_get_2_Register(adress,0x03,0x002a,0x0002);   // kVA
+  out += konversi::toIEEE(proses_api.bacaDataEprom(WBP_IN).toFloat());
+  out += konversi::toIEEE(proses_api.bacaDataEprom(LWBP_OUT).toFloat());
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0002,0x0002));   // A
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0012,0x0002));   // A
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0022,0x0002));   // A
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x003c,0x0002)/100.0);   // Hz
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0032,0x0002));   // kVAR   //reaktiv power
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0036,0x0002));   // kVA    //aperent power
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x003e,0x0002)/10.0);  // V
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0040,0x0002)/10.0);  // V
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0042,0x0002)/10.0);  // V
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0004,0x0002));     // kW   // aktif-opwer
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0014,0x0002));     // kW
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0024,0x0002));     // kW
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0006,0x0002));   // kVAR   // reaktif-power
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0016,0x0002));   // kVAR
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0026,0x0002));   // kVAR
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x000a,0x0002));   // kVA    // aperent-power
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x001a,0x0002));   // kVA
+  out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x002a,0x0002));   // kVA
   // Serial.println(out.length());
   return out;
 }//input_getDataSensor()
 
 //=================================================================================================
-String
+//String
+// uint32_t
+float
 posix_get_2_Register0(uint8_t addres,uint8_t func,uint16_t reg,uint16_t reg2){
   uint8_t sent;
   uint8_t crcCalc[7];
@@ -232,11 +238,21 @@ posix_get_2_Register0(uint8_t addres,uint8_t func,uint16_t reg,uint16_t reg2){
     index++;
   }
   
-  String out="";
-  if(crc16(dataIn,6)==int((dataIn[8]<<8)|dataIn[7])){
-    out = printHex(dataIn[3], 2)+printHex(dataIn[4], 2)+printHex(dataIn[5], 2)+printHex(dataIn[6], 2);
+  //String out="";
+  float out;
+  if(crc16(dataIn,6) == int((dataIn[8]<<8)|dataIn[7])){
+      //out = printHex(dataIn[3], 2)+printHex(dataIn[4], 2)+printHex(dataIn[5], 2)+printHex(dataIn[6], 2);
+      uint32_t dataOut = (uint32_t)dataIn[3]|(uint32_t)dataIn[4]<<8|(uint32_t)dataIn[5]<<16|(uint32_t)dataIn[6]<<24;
+      out = (float) dataOut;
     }else{
-      out = "nullData"; 
+      //out = "nullData"; 
+      out = 0x0;
+      // dataIn[3] = 0x00;
+      // dataIn[4] = 0x10;
+      // dataIn[5] = 0x00;
+      // dataIn[6] = 0x00;
+      // uint32_t dataOut = (uint32_t)dataIn[3]|(uint32_t)dataIn[4]<<8|(uint32_t)dataIn[5]<<16|(uint32_t)dataIn[6]<<24;
+      // out = (float) dataOut;
     }
   return out;
 }
@@ -247,67 +263,52 @@ posix_get_2_Register0(uint8_t addres,uint8_t func,uint16_t reg,uint16_t reg2){
   |     |       |         |
   3chr  8chr    ?char     8char and etc until end
 */
-
 String 
 input_getDataSensorOut()
 {
   uint8_t adress  = 0x02;
   String out  = ID_OUT;
-  out += posix_get_2_Register0(adress,0x04,0x0578,0x0002); 
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x04,0x0578,0x0002)); 
   out += tools_getDate(); 
-  out += posix_get_2_Register0(adress,0x03,0x00dc,0x0002);   // kWh    //circutor  5e-5f + 88-89 + b2-b3 = dc-dd
-  out += posix_get_2_Register0(adress,0x03,0x0030,0x0002);   // kW     //aktiv power
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x00dc,0x0002));   // kWh    //circutor  5e-5f + 88-89 + b2-b3 = dc-dd
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0030,0x0002));   // kW     //aktiv power
 
-   if(tools_tarif()=="WBP"){
+  if(tools_tarif()=="WBP"){
   // WBP  = KWHTOT-LWBP;
-      proses_api.tulisEprom(24,posix_get_2_Register0(adress,0x03,0x00dc,0x0002).toDouble() - proses_api.bacaDataEprom(26).toDouble());
+      proses_api.tulisEprom(
+        WBP_OUT,String(posix_get_2_Register0(adress,0x03,0x00dc,0x0002) - proses_api.bacaDataEprom(LWBP_OUT).toFloat())
+      );
   }else{
   // LWBP = KWHTOT-WBP;
-      proses_api.tulisEprom(26,posix_get_2_Register0(adress,0x03,0x00dc,0x0002).toDouble() - proses_api.bacaDataEprom(24).toDouble());
-  }
-  out += printHex(proses_api.bacaDataEprom(24).toDouble(),8);
-  out += printHex(proses_api.bacaDataEprom(26).toDouble(),8);  
-  out += posix_get_2_Register0(adress,0x03,0x0002,0x0002);   // A
-  out += posix_get_2_Register0(adress,0x03,0x0012,0x0002);   // A
-  out += posix_get_2_Register0(adress,0x03,0x0022,0x0002);   // A
+      proses_api.tulisEprom(
+        LWBP_OUT,String(posix_get_2_Register0(adress,0x03,0x00dc,0x0002) - proses_api.bacaDataEprom(WBP_OUT).toFloat())
+        );
+  } 
 
-  out += posix_get_2_Register0(adress,0x03,0x003c,0x0002);///100.0;   // Hz
-
-  out += posix_get_2_Register0(adress,0x03,0x0032,0x0002);   // kVAR   //reaktiv power
-  out += posix_get_2_Register0(adress,0x03,0x0036,0x0002);   // kVA    //aperent power
-  
-  out += posix_get_2_Register0(adress,0x03,0x003e,0x0002);///10.0;  // V
-  out += posix_get_2_Register0(adress,0x03,0x0040,0x0002);///10.0;  // V
-  out += posix_get_2_Register0(adress,0x03,0x0042,0x0002);///10.0;  // V
-                                            // aktif-opwer
-  out += posix_get_2_Register0(adress,0x03,0x0004,0x0002);     // kW
-  out += posix_get_2_Register0(adress,0x03,0x0014,0x0002);     // kW
-  out += posix_get_2_Register0(adress,0x03,0x0024,0x0002);     // kW
-                                          // reaktif-power
-  out += posix_get_2_Register0(adress,0x03,0x0006,0x0002);   // kVAR
-  out += posix_get_2_Register0(adress,0x03,0x0016,0x0002);   // kVAR
-  out += posix_get_2_Register0(adress,0x03,0x0026,0x0002);   // kVAR
-                                          // aperent-power
-  out += posix_get_2_Register0(adress,0x03,0x000a,0x0002);   // kVA
-  out += posix_get_2_Register0(adress,0x03,0x001a,0x0002);   // kVA
-  out += posix_get_2_Register0(adress,0x03,0x002a,0x0002);   // kVA  return out;
+  out += konversi::toIEEE(proses_api.bacaDataEprom(WBP_OUT).toFloat());
+  out += konversi::toIEEE(proses_api.bacaDataEprom(LWBP_OUT).toFloat());  
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0002,0x0002));   // A
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0012,0x0002));   // A
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0022,0x0002));   // A
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x003c,0x0002)/100.0);    // Hz
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0032,0x0002));   // kVAR   //reaktiv power
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0036,0x0002));   // kVA    //aperent power
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x003e,0x0002)/10.0);  // V
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0040,0x0002)/10.0);  // V
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0042,0x0002)/10.0);  // V
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0004,0x0002));   // kW      // aktif-opwer
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0014,0x0002));   // kW
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0024,0x0002));   // kW
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0006,0x0002));   // kVAR    // reaktif-power
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0016,0x0002));   // kVAR
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x0026,0x0002));   // kVAR
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x000a,0x0002));   // kVA     // aperent-power
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x001a,0x0002));   // kVA
+  out += konversi::toIEEE(posix_get_2_Register0(adress,0x03,0x002a,0x0002));   // kVA  return out;
   return out;
+
 }//input_getDataSensorOut()
-
 //=================================================================================================
-
-/*
-  //   void setup() {           //==================//GAKUSAH UDAH SAMA ATP
-  //     Serial.begin( 9600 );
-  //     Serial1.begin( 9600 );
-  //     pinMode(10,OUTPUT);
-  //   }
-    
-  //   void loop() {           //==================//GAKUSAH UDAH
-  //     Serial.println(input_getDataSensor());
-  //     delay(10);
-  //   }
-*/
 
 /*
   // adress       =  0x01;

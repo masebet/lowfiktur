@@ -125,6 +125,33 @@ RTC_DS3231 rtc;
 #include "proses.hpp"
 #include "input.hpp"
 
+namespace forDebug
+{
+  void cobaEprom(){
+    //===================================================================//
+  proses_api.tulisEprom(20,0);       //WBP_IN
+  proses_api.tulisEprom(22,0);       //LWBP_IN
+  proses_api.tulisEprom(24,0);       //WBP_OUT
+  proses_api.tulisEprom(26,0);       //LWBP_OUT
+  }
+
+  void cobaConverter(){
+      while(1){
+      // String data = konversi::IEEE(-2.88);
+      // konversi::HUMAN(data);
+      // float a   = posix_get_2_Register(0x02,0x04,0x0578,0x0002)/10.0;
+      // String b  = String(a);
+      // float c   = b.toFloat();
+      // Serial.println(b);
+      // Serial.println(a);
+      // Serial.println(c); 
+      // Serial.println(konversi::toIEEE(a));
+      //Serial.println(input_getDataSensor());
+      delay(1000);
+    }
+  }
+}
+
 //setup
 void setup() {
 
@@ -172,6 +199,7 @@ void setup() {
   //     GETmodbus();
   //     send2serverEbet();
   // }
+  //forDebug::cobaEprom();
 
 }
 
@@ -479,9 +507,9 @@ void SendCommand(String command, const int timeout, boolean debug){
   
   if(Reply.indexOf("CSQ")>0){ Serial.println(Reply); }
   
-  if(Reply.indexOf("ERROR")>0)    { Serial.print(command); Serial.println("\t\t\t\tERROR"); }
-  else if (Reply.indexOf("OK")>0) { Serial.print(command); Serial.println("\t\t\t\tOK");    }
-  else { Serial.print(Reply); Serial.println("\t\t\t\tCOMPLETE"); }
+  if(Reply.indexOf("ERROR")>0)    { Serial.print("ERROR proses of>  "); Serial.println(command); }
+  else if (Reply.indexOf("OK")>0) { Serial.print("OK proses of>  "); Serial.println(command); }
+  else { Serial.print("SUCSES proses of>  "); Serial.println(Reply); }
 }//SendCommand()
 
 
@@ -682,7 +710,7 @@ void SendMessage(){
     
         //kemudian bales smsnya
         ResponeSMS+="SNI:";   ResponeSMS.concat(ID_IN+konversi::toIEEE(posix_get_2_Register(0x01,0x04,0x0578,0x0002)));
-        ResponeSMS+="\nSNO:"; ResponeSMS.concat(ID_OUT+konversi::toIEEE(posix_get_2_Register0(0x02,0x04,0x0578,0x0002)));
+        ResponeSMS+="\nSNO:"; ResponeSMS.concat(ID_OUT+konversi::toIEEE(posix_get_2_RegisterOut(0x02,0x04,0x0578,0x0002)));
         
         SendCommand("AT+CMGS=\""+sender_phone+"\"",1000,S1debug);
         SendCommand(ResponeSMS,500,S1debug);
@@ -695,7 +723,7 @@ void SendMessage(){
       else if(KodeSMS=="IPRESET"){
         //balas dulu sms baru reset
         ResponeSMS+="SNI:"; ResponeSMS.concat(ID_IN+konversi::toIEEE(posix_get_2_Register(0x01,0x04,0x0578,0x0002)));
-        ResponeSMS+="\nSNO:";ResponeSMS.concat(ID_OUT+konversi::toIEEE(posix_get_2_Register0(0x02,0x04,0x0578,0x0002)));
+        ResponeSMS+="\nSNO:";ResponeSMS.concat(ID_OUT+konversi::toIEEE(posix_get_2_RegisterOut(0x02,0x04,0x0578,0x0002)));
         ResponeSMS+="\nRESET SISTEM";
         
         SendCommand("AT+CMGS=\""+sender_phone+"\"",1000,S1debug);

@@ -2,31 +2,38 @@
 
 String printHexDate(uint32_t num, int precision);
   
-  String
-  tools_getDate()
-  {
-    DateTime now = rtc.now();
-    return printHexDate(now.unixtime()-820454400,8); //data dikurangi 26 tahun
-  }
+String
+tools_getDate()
+{
+  DateTime now = rtc.now();
+  return printHexDate(now.unixtime()-820454400,8); //data dikurangi 26 tahun
+}
 
-  int
-  tools_jamH()
-  {
-    DateTime now = rtc.now();
-    return (int)now.hour();
-  }
+int
+tools_jamH()
+{
+  DateTime now = rtc.now();
+  return (int)now.hour();
+}
 
-  String
-  tools_tarif()
-  {
-   if (tools_jamH()==17)return "WBP";
-   if (tools_jamH()==18)return "WBP";
-   if (tools_jamH()==19)return "WBP";
-   if (tools_jamH()==20)return "WBP";
-   if (tools_jamH()==21)return "WBP";
-   if (tools_jamH()==22)return "WBP";
-   return "LWBP";
-  }
+int
+tools_jamM()
+{
+  DateTime now = rtc.now();
+  return (int) now.minute();
+}
+
+String
+tools_tarif()
+{
+  if (tools_jamH()==17)return "WBP";
+  if (tools_jamH()==18)return "WBP";
+  if (tools_jamH()==19)return "WBP";
+  if (tools_jamH()==20)return "WBP";
+  if (tools_jamH()==21)return "WBP";
+  if (tools_jamH()==22)return "WBP";
+  return "LWBP";
+}
 
 uint16_t
 crc16_update(uint16_t crc, uint8_t a)
@@ -158,7 +165,7 @@ posix_get_2_Register(uint8_t addres,uint8_t func,uint16_t reg,uint16_t reg2){
   urutan datanya adalah
   CR1 SerialID execlTime KWH Wtot WBP LWBP IR IS IT FRQ VarTot VAtot VR VS VT WR WS WT VarR VarS VarT VAR VAS VAT
   |     |       |         |
-  3chr  8chr    ?char     8char and etc until end
+  3chr  8chr    8chr     8char and etc until end
 */
 
 String 
@@ -173,14 +180,14 @@ input_getDataSensor()
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0030,0x0002));   // kW     //aktiv power
 
   if(tools_tarif()=="WBP"){
-  // WBP  = KWh-LWBP;
+      // WBP  = KWh-LWBP;
       float KWh = posix_get_2_Register(adress,0x03,0x00dc,0x0002);
       if(KWh>=1.0){
         float WBP = KWh - proses_api.bacaDataEprom(LWBP_IN).toFloat();
         proses_api.tulisEprom(WBP_IN, String((float)WBP) );
       }
   }else{
-  // LWBP = KWh-WBP;
+      // LWBP = KWh-WBP;
       float KWh = posix_get_2_Register(adress,0x03,0x00dc,0x0002);
       if(KWh>=1.0){
         float LWBP = KWh - proses_api.bacaDataEprom(WBP_IN).toFloat();
@@ -194,18 +201,24 @@ input_getDataSensor()
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0002,0x0002)/1000.0);   // A
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0012,0x0002)/1000.0);   // A
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0022,0x0002)/1000.0);   // A
+  
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x003c,0x0002)/100.0);   // Hz
+  
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0032,0x0002));   // kVAR   //reaktiv power
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0036,0x0002));   // kVA    //aperent power
+  
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x003e,0x0002)/10.0);  // V
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0040,0x0002)/10.0);  // V
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0042,0x0002)/10.0);  // V
+  
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0004,0x0002));     // kW   // aktif-opwer
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0014,0x0002));     // kW
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0024,0x0002));     // kW
+  
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0006,0x0002));   // kVAR   // reaktif-power
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0016,0x0002));   // kVAR
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0026,0x0002));   // kVAR
+
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x000a,0x0002));   // kVA    // aperent-power
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x001a,0x0002));   // kVA
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x002a,0x0002));   // kVA
@@ -282,7 +295,7 @@ posix_get_2_RegisterOut(uint8_t addres,uint8_t func,uint16_t reg,uint16_t reg2){
   urutan datanya adalah
   CR1 SerialID execlTime KWH Wtot WBP LWBP IR IS IT FRQ VarTot VAtot VR VS VT WR WS WT VarR VarS VarT VAR VAS VAT
   |     |       |         |
-  3chr  8chr    ?char     8char and etc until end
+  3chr  8chr    8chr     8char and etc until end
 */
 String 
 input_getDataSensorOut()
@@ -295,42 +308,43 @@ input_getDataSensorOut()
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0030,0x0002));   // kW     //aktiv power
 
   if(tools_tarif()=="WBP"){
-  // WBP  = KWh-LWBP;
+      // WBP  = KWh-LWBP;
       float KWh = posix_get_2_RegisterOut(adress,0x03,0x00dc,0x0002);
-      Serial.println("WBP> "); Serial.println(KWh);
       if(KWh>=1.0){
         float WBP = KWh - proses_api.bacaDataEprom(LWBP_OUT).toFloat();
         proses_api.tulisEprom(WBP_OUT, String((float)WBP) );
       }
   }else{
-  // LWBP = KWh-WBP;
+      // LWBP = KWh-WBP;
       float KWh = posix_get_2_RegisterOut(adress,0x03,0x00dc,0x0002);
-      Serial.println("LWBP> "); Serial.println(KWh);
       if(KWh>=1.0){
         float LWBP = KWh - proses_api.bacaDataEprom(WBP_OUT).toFloat();
         proses_api.tulisEprom(LWBP_OUT, String((float)LWBP) );
       }
   }   
   out += konversi::toIEEE(proses_api.bacaDataEprom(WBP_OUT).toFloat());
-  Serial.println(proses_api.bacaDataEprom(WBP_OUT).toFloat());
   out += konversi::toIEEE(proses_api.bacaDataEprom(LWBP_OUT).toFloat());  
-  Serial.println(proses_api.bacaDataEprom(LWBP_OUT).toFloat());
 
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0002,0x0002)/1000.0);   // A
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0012,0x0002)/1000.0);   // A
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0022,0x0002)/1000.0);   // A
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x003c,0x0002)/100.0);    // Hz
+  
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0032,0x0002));   // kVAR   //reaktiv power
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0036,0x0002));   // kVA    //aperent power
+  
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x003e,0x0002)/10.0);  // V
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0040,0x0002)/10.0);  // V
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0042,0x0002)/10.0);  // V
+  
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0004,0x0002));   // kW      // aktif-opwer
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0014,0x0002));   // kW
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0024,0x0002));   // kW
+  
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0006,0x0002));   // kVAR    // reaktif-power
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0016,0x0002));   // kVAR
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0026,0x0002));   // kVAR
+
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x000a,0x0002));   // kVA     // aperent-power
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x001a,0x0002));   // kVA
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x002a,0x0002));   // kVA  return out;
@@ -338,6 +352,114 @@ input_getDataSensorOut()
 
 }//input_getDataSensorOut()
 //=================================================================================================
+
+float
+posix_get_1_Register(uint8_t addres,uint8_t func,uint16_t reg,uint16_t reg2){ 
+  uint8_t sent;
+  uint8_t crcCalc[7];
+
+  digitalWrite(ModIN_RS485_pin, HIGH);      // digitalWrite(10,1);
+
+  crcCalc[0]=sent=addres;
+  ModIN.write(sent);
+  
+  crcCalc[1]=sent=func;
+  ModIN.write(sent);
+
+  crcCalc[2]=sent=reg>>8;
+  ModIN.write(sent);
+  crcCalc[3]=sent=reg;
+  ModIN.write(sent);
+
+  crcCalc[4]=sent=reg2>>8;
+  ModIN.write(sent);
+  crcCalc[5]=sent=reg2;
+  ModIN.write(sent);
+
+  uint16_t crc=crc16(crcCalc,5);
+  sent=crc;
+  ModIN.write(sent);
+  sent=crc>>8;
+  ModIN.write(sent);
+
+  delay(10);                            //harus ada delai untuk menyelamatkan bit terakhir
+  digitalWrite(ModIN_RS485_pin, LOW);   // digitalWrite(10,0);
+  delay(150);                           //harus ada delai untuk tunggu interup uart
+  
+  uint8_t dataIn[8]; String dataString="";
+  int index=0;
+  while(ModIN.available()){
+    dataIn[index]=ModIN.read();
+    dataString += printHex(dataIn[index], 2);
+    index++;
+  }
+
+  float out;
+  if(crc16(dataIn,6) == int((dataIn[8]<<8)|dataIn[7])){
+      uint32_t dataOut =  (uint32_t)dataIn[3]<<24| 
+                          (uint32_t)dataIn[4]<<16|
+                          (uint32_t)dataIn[5]<<8 |
+                          (uint32_t)dataIn[6];
+
+      out = (float) dataOut;
+    }else{
+      out = 0x0;
+    }
+  return out;
+}
+
+float
+posix_get_1_RegisterOut(uint8_t addres,uint8_t func,uint16_t reg,uint16_t reg2){
+  uint8_t sent;
+  uint8_t crcCalc[7];
+
+  digitalWrite(10,1);
+  crcCalc[0]=sent=addres;
+  Serial1.write(sent);
+  
+  crcCalc[1]=sent=func;
+  Serial1.write(sent);
+
+  crcCalc[2]=sent=reg>>8;
+  Serial1.write(sent);
+  crcCalc[3]=sent=reg;
+  Serial1.write(sent);
+
+  crcCalc[4]=sent=reg2>>8;
+  Serial1.write(sent);
+  crcCalc[5]=sent=reg2;
+  Serial1.write(sent);
+
+  uint16_t crc=crc16(crcCalc,5);
+  sent=crc;
+  Serial1.write(sent);
+  sent=crc>>8;
+  Serial1.write(sent);
+
+  delay(10);          //harus ada delai untuk menyelamatkan bit terakhir
+  digitalWrite(10,0);
+  delay(150);         //harus ada delai untuk tunggu interup uart
+  
+  uint8_t dataIn[8]; String dataString="";
+  int index=0;
+  while(Serial1.available()){
+    dataIn[index]=Serial1.read();
+    dataString += printHex(dataIn[index], 2);
+    index++;
+  }
+  
+  float out;
+  if(crc16(dataIn,6) == int((dataIn[8]<<8)|dataIn[7])){
+      uint32_t dataOut =  (uint32_t)dataIn[3]<<24|
+                          (uint32_t)dataIn[4]<<16|
+                          (uint32_t)dataIn[5]<<8  |
+                          (uint32_t)dataIn[6];
+      out = (float) dataOut;
+    }else{
+      out = 0x0;
+    }
+  return out;
+}
 
 /*
   // adress       =  0x01;
@@ -356,3 +478,153 @@ input_getDataSensorOut()
   //  posix_get_2_Register(0x01,0x05,0x083f,0xff00);  //Deleting the maximum value of the maximum demand
   //  posix_get_2_Register(0x01,0x05,0x0848,0xff00);  //Deleting energies, maximum demand and maximum and minimum values
 */
+
+
+bool DEBUG =0;
+void debug()
+{
+
+  while(1){
+  if(RecieveMessage()) {
+    fikturSMS();
+    kirimPesan();
+  }
+  
+    delay(1000);
+  }
+}//debug()
+
+void SendCommand(String command, const int timeout, boolean debug)
+{       
+  Serial2.print(command); 
+
+  // Reply = "";
+  // delay(timeout);
+  // if(Serial2.available()) Reply = Serial2.readString();
+  
+  Reply = "";
+  unsigned long time = millis();
+  while ((millis()-time)< timeout ){
+      if(Serial2.available()) Reply = Serial2.readString();
+          // Reply += char(Serial2.read());
+  }
+
+  if(Reply.indexOf("CSQ")>0)  Serial.println(Reply);
+
+  if      (Reply.indexOf("ERROR")>0)  { Serial.print("ERROR proses of>  "); Serial.println(command); }
+  else if (Reply.indexOf("OK")>0)     { Serial.print("OK proses of>  "); Serial.println(command); }
+  else { Serial.println("SUCSES proses of>>  "); Serial.println(Reply); }
+}//SendCommand()
+
+bool RecieveMessage()
+{
+  wdt_reset(); 
+  Serial2.write(0x1A); 
+  SendCommand("AT\r\n",500,S1debug);
+  SendCommand("AT+CMGR=1\r\n",500,S1debug);
+  Serial.println("pesan >>"); Serial.println(Reply);
+  int f,l;
+  f=Reply.indexOf("\",\"+"); 
+  l=Reply.indexOf("\"\"");
+  sender_phone=Reply.substring(f+3,l-2);
+  Serial.print("Nomor Telepon >"); Serial.println(sender_phone);
+  if(f>0) return 1; 
+  return 0;
+}//RecieveMessage()
+
+void fikturSMS()
+{
+    ResponeSMS="";
+    Serial.println(Reply);
+
+    if(Reply.indexOf("RESET")>0) {
+       posix_get_1_Register(0x01,0x05,0x0834,0xFF00);
+       posix_get_1_RegisterOut(0x02,0x05,0x0834,0xFF00);
+       proses_api.tulisEprom(WBP_IN, String(0.0));
+       proses_api.tulisEprom(LWBP_IN, String(0.0));
+       proses_api.tulisEprom(WBP_OUT, String(0.0));
+       proses_api.tulisEprom(LWBP_OUT, String(0.0));
+       ResponeSMS+="\r\nRESET ALL OK";
+    }
+
+    if(Reply.indexOf("MODE#")>0) {
+        int f,l;
+        f=Reply.indexOf("#"); 
+        l=Reply.indexOf(";");
+        String Mode = Reply.substring(f+1,l);
+        proses_api.tulisEprom(EP_MODE,Mode);
+        ResponeSMS+="\r\nMODE > "+Mode;
+    }
+
+    if(Reply.indexOf("JAM#")>0) {
+        int f,l;
+        f=Reply.indexOf("#"); 
+        l=Reply.indexOf(";");
+        String Jam = Reply.substring(f+1,l);
+        rtc.adjust(DateTime(2020, 3, 10, Jam.toInt(), tools_jamM(), 0));
+        ResponeSMS+="\r\nJAM > "+Jam;
+    }
+    
+    if(Reply.indexOf("MIN#")>0) {
+        int f,l;
+        f=Reply.indexOf("#"); 
+        l=Reply.indexOf(";");
+        String Min = Reply.substring(f+1,l);
+        rtc.adjust(DateTime(2020, 3, 10, tools_jamH(), Min.toInt(), 0));
+        ResponeSMS+="\r\nMINUTE > "+Min;
+    }
+
+    if(Reply.indexOf("IP#")>0) {
+        int f,l;
+        f=Reply.indexOf("#"); 
+        l=Reply.indexOf(";");
+        String Ip = Reply.substring(f+1,l);
+        proses_tulisEprom(EP_IP,Ip);
+        ResponeSMS+="\r\nIP > "+Ip;
+        IPADDRESS = proses_bacaDataEprom(EP_IP);
+    }
+    
+    if(Reply.indexOf("PORT#")>0) {
+        int f,l;
+        f=Reply.indexOf("#"); 
+        l=Reply.indexOf(";");
+        String Port = Reply.substring(f+1,l);
+        proses_api.tulisEprom(EP_PORT,Port);
+        ResponeSMS+="\r\nPORT > "+Port;
+        PORT = proses_api.bacaDataEprom(EP_PORT);
+    }
+
+    if(Reply.indexOf("APN#")>0) {
+        int f,l;
+        f=Reply.indexOf("#"); 
+        l=Reply.indexOf(";");
+        String Apn = Reply.substring(f+1,l);
+        proses_tulisEprom(EP_APN,Apn);
+        ResponeSMS+="\r\nAPN > "+Apn;
+        APN = proses_bacaDataEprom(EP_APN);
+    }
+
+    if(Reply.indexOf("HELP")>0) ResponeSMS+="\r\nMODE?TIME?IP?PORT?IP?\r\nHanya bisa satu persatu :\r\nJAM#<x>;MIN#<x>;IP#<x>;PORT#<x>;APN#<x>;\r\nRESET";
+    if(Reply.indexOf("TIME")>0) ResponeSMS+="\r\nTIME : "+tools_tarif()+" "+String(tools_jamH())+":"+String(tools_jamM());
+    if(Reply.indexOf("IP")>0)   ResponeSMS+="\r\nIP TCP : "+IPADDRESS;
+    if(Reply.indexOf("PORT")>0) ResponeSMS+="\r\nIP PORT : "+PORT;
+    if(Reply.indexOf("APN")>0)  ResponeSMS+="\r\nAPN : "+APN;
+    if(Reply.indexOf("MODE")>0) ResponeSMS+="\r\nMODE : "+proses_api.bacaDataEprom(EP_MODE);
+
+}
+
+void kirimPesan()
+{
+    ResponeSMS+="\r\nSNI: ";   ResponeSMS.concat(ID_IN+konversi::toIEEE(posix_get_2_Register(0x01,0x04,0x0578,0x0002)));
+    ResponeSMS+="\r\nSNO: "; ResponeSMS.concat(ID_OUT+konversi::toIEEE(posix_get_2_RegisterOut(0x02,0x04,0x0578,0x0002)));
+    
+    SendCommand("AT+CMGF=1\r\n",500,S1debug);
+    SendCommand("AT+CMGS=\""+sender_phone+"\"\r\n",500,S1debug);
+    SendCommand(ResponeSMS+"\r\n",1000,S1debug);
+    SendCipSend(9000);
+    
+    ResponeSMS="";
+    sender_phone="";
+    SendCommand("AT\r\n",250,S1debug);
+    SendCommand("AT+CMGD=1,4\r\n",500,S1debug);
+}//kirimPesan()

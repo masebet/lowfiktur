@@ -54,6 +54,39 @@ class DataEprom{
 };
 DataEprom proses_api;
 
+
+  inline void 
+  proses_tulisEprom(int ngone,String isine)
+  {   
+    String hasile="";
+    unsigned int adde; 
+    ngone=ngone*8;
+    for(int i=0;i<15;i++) {
+      adde= ngone +i;
+      eeprom_write_byte((unsigned char *) adde,isine[i]);
+    }
+  }
+
+  inline String 
+  proses_bacaDataEprom(int ngone)
+  {
+    String hasile="";
+    unsigned int adde; 
+    char dat[20]="";
+    byte e;
+    ngone=ngone*8;
+    for(int i=0;i<15;i++){
+      adde = ngone + i;
+      e = eeprom_read_byte((unsigned char *) adde);
+      dat[i]= (char )e;
+    }
+    hasile = (String) dat;
+    return hasile;
+  }
+
+
+
+
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>

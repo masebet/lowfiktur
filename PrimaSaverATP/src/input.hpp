@@ -2,39 +2,6 @@
 
 String printHexDate(uint32_t num, int precision);
   
-String
-tools_getDate()
-{
-  DateTime now = rtc.now();
-  return printHexDate(now.unixtime()-820454400,8); //data dikurangi 26 tahun
-}
-
-int
-tools_jamH()
-{
-  DateTime now = rtc.now();
-  return (int)now.hour();
-}
-
-int
-tools_jamM()
-{
-  DateTime now = rtc.now();
-  return (int) now.minute();
-}
-
-String
-tools_tarif()
-{
-  if (tools_jamH()==17)return "WBP";
-  if (tools_jamH()==18)return "WBP";
-  if (tools_jamH()==19)return "WBP";
-  if (tools_jamH()==20)return "WBP";
-  if (tools_jamH()==21)return "WBP";
-  if (tools_jamH()==22)return "WBP";
-  return "LWBP";
-}
-
 uint16_t
 crc16_update(uint16_t crc, uint8_t a)
 {
@@ -175,11 +142,11 @@ input_getDataSensor()
   String out = ID_IN;
 
   out += konversi::toIEEE(posix_get_2_Register(adress,0x04,0x0578,0x0002)); 
-  out += tools_getDate(); 
+  out += tools::getDate(); 
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x00dc,0x0002));   // kWh    //circutor  5e-5f + 88-89 + b2-b3 = dc-dd
   out += konversi::toIEEE(posix_get_2_Register(adress,0x03,0x0030,0x0002));   // kW     //aktiv power
 
-  if(tools_tarif()=="WBP"){
+  if(tools::tarif()=="WBP"){
       // WBP  = KWh-LWBP;
       float KWh = posix_get_2_Register(adress,0x03,0x00dc,0x0002);
       if(KWh>=1.0){
@@ -303,11 +270,11 @@ input_getDataSensorOut()
   uint8_t adress  = 0x02;
   String out  = ID_OUT;
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x04,0x0578,0x0002)); 
-  out += tools_getDate(); 
+  out += tools::getDate(); 
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x00dc,0x0002));   // kWh    //circutor  5e-5f + 88-89 + b2-b3 = dc-dd
   out += konversi::toIEEE(posix_get_2_RegisterOut(adress,0x03,0x0030,0x0002));   // kW     //aktiv power
 
-  if(tools_tarif()=="WBP"){
+  if(tools::tarif()=="WBP"){
       // WBP  = KWh-LWBP;
       float KWh = posix_get_2_RegisterOut(adress,0x03,0x00dc,0x0002);
       if(KWh>=1.0){
@@ -516,8 +483,7 @@ void SendCommand(String command, const int timeout, boolean debug)
   else { Serial.println("SUCSES proses of>>  "); Serial.println(Reply); }
 }//SendCommand()
 
-bool RecieveMessage()
-{
+bool RecieveMessage(){
   wdt_reset(); 
   Serial2.write(0x1A); 
   SendCommand("AT\r\n",500,S1debug);
@@ -556,12 +522,39 @@ void fikturSMS()
         ResponeSMS+="\r\nMODE > "+Mode;
     }
 
+    if(Reply.indexOf("TAHUN#")>0) {
+        int f,l;
+        f=Reply.indexOf("#"); 
+        l=Reply.indexOf(";");
+        String Tahun = Reply.substring(f+1,l);
+        rtc.adjust(DateTime(Tahun.toInt(), tools::Bulan(), tools::Hari(), tools::jamH(), tools::jamM(), 0));
+        ResponeSMS+="\r\nTAHUN > "+Tahun;
+    }
+
+    if(Reply.indexOf("BULAN#")>0) {
+        int f,l;
+        f=Reply.indexOf("#"); 
+        l=Reply.indexOf(";");
+        String Bulan = Reply.substring(f+1,l);
+        rtc.adjust(DateTime(tools::Tahun(), Bulan.toInt(), tools::Hari(), tools::jamH(), tools::jamM(), 0));
+        ResponeSMS+="\r\nBULAN > "+Bulan;
+    }
+
+    if(Reply.indexOf("HARI#")>0) {
+        int f,l;
+        f=Reply.indexOf("#"); 
+        l=Reply.indexOf(";");
+        String Hari = Reply.substring(f+1,l);
+        rtc.adjust(DateTime(tools::Tahun(), tools::Bulan(), Hari.toInt(), tools::jamH(), tools::jamM(), 0));
+        ResponeSMS+="\r\nHARI > "+Hari;
+    }
+
     if(Reply.indexOf("JAM#")>0) {
         int f,l;
         f=Reply.indexOf("#"); 
         l=Reply.indexOf(";");
         String Jam = Reply.substring(f+1,l);
-        rtc.adjust(DateTime(2020, 3, 10, Jam.toInt(), tools_jamM(), 0));
+        rtc.adjust(DateTime(tools::Tahun(), tools::Bulan(), tools::Hari(), Jam.toInt(), tools::jamM(), 0));
         ResponeSMS+="\r\nJAM > "+Jam;
     }
     
@@ -570,7 +563,7 @@ void fikturSMS()
         f=Reply.indexOf("#"); 
         l=Reply.indexOf(";");
         String Min = Reply.substring(f+1,l);
-        rtc.adjust(DateTime(2020, 3, 10, tools_jamH(), Min.toInt(), 0));
+        rtc.adjust(DateTime(tools::Tahun(),tools::Bulan(), tools::Hari(), tools::jamH(), Min.toInt(), 0));
         ResponeSMS+="\r\nMINUTE > "+Min;
     }
 
@@ -605,11 +598,12 @@ void fikturSMS()
     }
 
     if(Reply.indexOf("HELP")>0) ResponeSMS+="\r\nMODE?TIME?IP?PORT?IP?\r\nHanya bisa satu persatu :\r\nJAM#<x>;MIN#<x>;IP#<x>;PORT#<x>;APN#<x>;\r\nRESET";
-    if(Reply.indexOf("TIME")>0) ResponeSMS+="\r\nTIME : "+tools_tarif()+" "+String(tools_jamH())+":"+String(tools_jamM());
+    if(Reply.indexOf("TIME")>0) ResponeSMS+="\r\nTIME : "+tools::tarif()+" "+String(tools::jamH())+":"+String(tools::jamM());
     if(Reply.indexOf("IP")>0)   ResponeSMS+="\r\nIP TCP : "+IPADDRESS;
     if(Reply.indexOf("PORT")>0) ResponeSMS+="\r\nIP PORT : "+PORT;
     if(Reply.indexOf("APN")>0)  ResponeSMS+="\r\nAPN : "+APN;
     if(Reply.indexOf("MODE")>0) ResponeSMS+="\r\nMODE : "+proses_api.bacaDataEprom(EP_MODE);
+    if(Reply.indexOf("DATE")>0) ResponeSMS+="\r\nDATE : "+tools::Waktu();
 
 }
 

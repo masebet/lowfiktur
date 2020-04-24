@@ -133,3 +133,144 @@ namespace konversi
     return varh.f;
   }
 }
+
+
+namespace tools
+{
+  String getDate()
+  {
+    DateTime now = rtc.now();
+    return printHexDate(now.unixtime()-820454400,8); //data dikurangi 26 tahun
+  }
+
+  int jamH()
+  {
+    DateTime now = rtc.now();
+    return (int)now.hour();
+  }
+
+  int jamM()
+  {
+    DateTime now = rtc.now();
+    return (int) now.minute();
+  }
+
+  int jamD(){
+    DateTime now = rtc.now();
+    return (int) now.second();  
+  }
+
+  int Hari()
+  {
+    DateTime now = rtc.now();
+    return (int) now.day();
+  }
+
+  int Bulan()
+  {
+    DateTime now = rtc.now();
+    return (int) now.month();
+  }
+
+  int Tahun()
+  {
+    DateTime now = rtc.now();
+    return (int) now.year();
+  }
+
+  String Waktu()
+  {
+    DateTime now = rtc.now();
+    return String(now.day())+"-"+String(now.month())+"-"+String(now.year());
+  }
+
+  String tarif()
+  {
+    if (jamH()==17)return "WBP";
+    if (jamH()==18)return "WBP";
+    if (jamH()==19)return "WBP";
+    if (jamH()==20)return "WBP";
+    if (jamH()==21)return "WBP";
+    if (jamH()==22)return "WBP";
+    return "LWBP";
+  }
+
+}//tools
+
+float posix_get_1_RegisterOut(uint8_t addres, uint8_t func, uint16_t reg, uint16_t reg2);
+float posix_get_1_Register(uint8_t addres, uint8_t func, uint16_t reg, uint16_t reg2);
+
+namespace rutin
+{
+   void resetMeteranDanEprom(){
+       if(tools::Hari()==1){
+          if(tools::jamH()==10&&tools::jamM()==0&&tools::jamD()<30){
+            posix_get_1_Register(0x01,0x05,0x0834,0xFF00);
+            posix_get_1_RegisterOut(0x02,0x05,0x0834,0xFF00);
+            proses_api.tulisEprom(WBP_IN, String(0.0));
+            proses_api.tulisEprom(LWBP_IN, String(0.0));
+            proses_api.tulisEprom(WBP_OUT, String(0.0));
+            proses_api.tulisEprom(LWBP_OUT, String(0.0));
+            
+            for(int b=1;b<=12;b++){
+              String dir =String(tools::Tahun()-2);
+              for(int i=1;i<=31;i++){
+                SD.remove(dir+"/"+String(b)+"/"+String(i)+".TXT");   
+              }
+              SD.rmdir(dir+"/"+String(b));
+              SD.rmdir(dir);
+            }
+
+          }
+       }
+     }
+
+   void logerData(String in){
+
+      String dir = String(tools::Tahun());
+      if(!SD.exists(dir)){
+        SD.mkdir(dir);
+      }
+      dir = String(tools::Tahun())+"/"+String(tools::Bulan());
+      if(!SD.exists(dir)){
+      SD.mkdir(dir);  
+      }
+      
+      myFile = SD.open(String(tools::Tahun())+"/"+String(tools::Bulan())+"/"+String(tools::Hari())+".TXT", FILE_WRITE);
+      if (myFile) {
+        myFile.println(in);
+        myFile.close();
+      }
+
+   }//logerData()
+
+   void tarikDataLoger(){
+    String in = "DATA#0/0/0;";
+     if(Serial.available()){
+       in = Serial.readString();
+        int f,l;
+        f=in.indexOf("#"); 
+        l=in.indexOf(";");
+        String data = in.substring(f+1,l);
+      
+        myFile = SD.open(data+".TXT");
+        
+        Serial.println("<START>");
+        if (myFile) {
+          while (myFile.available()) {
+            Serial.write(myFile.read());
+          }
+          myFile.close();
+        } 
+        Serial.println("<END>");
+      }
+   }//tarikDataLoger()
+
+   void cekSDCard(){
+    if (SD.begin(PIN_CS)) {
+      Serial.println("ini bisa");
+    }else{
+      Serial.println("ini tidak bisa");  
+    }
+   }
+}//rutin

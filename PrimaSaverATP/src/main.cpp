@@ -20,12 +20,14 @@
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
 #include <Wire.h>
+#include <SPI.h>
 
 #define ModIN_rxPin 11
 #define ModIN_txPin 12
 #define ModIN_RS485_pin 13
 #define ModOUT_RS485_pin 10
 #define PinResetSIM900A 9
+#define PIN_CS 53
 
 #define WBP_IN    20
 #define LWBP_IN   22
@@ -130,9 +132,13 @@ void READYSEND();
 void SendMessage();
 void ResetSim900A();
 void kirimPesan();
+
 //fungsi tambahan
 #include "RTClib.h"
 RTC_DS3231 rtc;
+
+#include "SD.h"
+File myFile;
 
 #include "proses.hpp"
 #include "input.hpp"
@@ -161,6 +167,12 @@ void setup() {
   Serial.println("Modem Prima Saver v.07");
   Serial.print("FIRMWARE VERSION:");Serial.println(FV);
 
+  if (SD.begin(PIN_CS)) {
+    Serial.println("ini bisa");
+  }else{
+    Serial.println("ini tidak bisa");  
+  }
+
   proses_api.tulisEprom(EID_IN,"ED1");
   proses_api.tulisEprom(EID_OUT,"ED2");
   
@@ -183,11 +195,14 @@ void setup() {
   SendCommand("AT+CMGD=1,4\r\n",500,S1debug);       //
   // SendCommand("AT+CMGDA=\"DEL ALL\"\r\n",500,S1debug);       //
   if(DEBUG) debug();
+
 }//setup
 
 void loop() {
   wdt_reset();
 
+  rutin::resetMeteranDanEprom();
+  rutin::tarikDataLoger();
   if(RecieveMessage()) {
     fikturSMS();
     kirimPesan();
@@ -201,7 +216,6 @@ void loop() {
       if(proses_api.bacaDataEprom(EP_MODE)=="G328") send2serverEbet328();// 
       else send2serverEbet();
   }                     //
-  //send2server();
   FM="";
   FM.concat(freeMemory());
   ResetSim900A();       //  Untuk reset modul gsm
@@ -228,7 +242,7 @@ void GETmodbus(){
    
    modbuskwh_IN.concat(input_getDataSensor());
    modbuskwh_OUT.concat(input_getDataSensorOut());
-
+   rutin::logerData(modbuskwh_IN+modbuskwh_OUT);
    Serial.print("modbuskwh_IN:");Serial.println(modbuskwh_IN );
    Serial.print("modbuskwh_OT:");Serial.println(modbuskwh_OUT);
    SendDataKWH_IN         =true;

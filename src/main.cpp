@@ -71,10 +71,13 @@ String  Datakwh_IN2       ="";
 String  IPADDRESS         ="";//"183.91.67.211";
 String  PORT              ="";//"15055";
 String  APN               ="";//"internet";
-// String  cpin              ="";
-// String  csq               ="";
-// String  cipstatus         ="";
-// String  respondsend       ="";
+
+//String  cpin              ="";
+String  csq               ="";
+//String  cipstatus         ="";
+String  respondsend       ="";
+String  sdCard            ="";
+
 
 String  sender_phone      ="";
 String  Reply             ="";
@@ -84,17 +87,17 @@ String  ID_IN             ="";
 String  ID_OUT            ="";
 String  KodeSMS           ="";
 String  ResponeSMS        ="";
-// String  MOBI[3]           ={};
-// String  MOBO[3]           ={};
-String  FV                ="ATP 20/07/17";
+String  MOBI              ="";
+String  MOBO              ="";
+String  FV                ="CC_2R 05/05/2020";
 String  FM                ="";
 
 char    charBuf[10];
 char    kar;
 
 uint8_t sumcpin           =0;          
-uint8_t FI                =0;
-uint8_t LI                =0; 
+// uint8_t FI                =0;
+// uint8_t LI                =0; 
 uint8_t state             =0;
 uint8_t i                 =0;
 
@@ -132,7 +135,8 @@ void READYSEND();
 void SendMessage();
 void ResetSim900A();
 void kirimPesan();
-
+void cekSignal();
+void cekModbus();
 //fungsi tambahan
 // #include "RTClib.h"
 // RTC_DS3231 rtc;
@@ -142,6 +146,7 @@ File myFile;
 
 #include "proses.hpp"
 #include "input.hpp"
+#include "sms.h"
 
 //ED160dc4e8bc26f2ddc736c4a2faf804afc0f00479aa2f44a2a480046787c0046a63800461a147b42489d804982d3e04b20800043c0400043c1c00043c317804a4288804a44458049e400000000000000009d80498274404a577c004a9247004a06ED261284e8bc2732ddc000043fa0000459c0000434800004396a9fc41158b444154db2340b90a3d424880004420900045c6733343c0000043c1c00043c3000044ea400044fec0004487000000000000000080004420c0004501c000453a400044a1
 
@@ -186,11 +191,12 @@ void setup() {
   Serial.println("Modem Prima Saver v.07");
   Serial.print("FIRMWARE VERSION:");Serial.println(FV);
 
-  if (SD.begin(PIN_CS)) {
-    Serial.println("ini bisa");
-  }else{
-    Serial.println("ini tidak bisa");  
-  }
+     if (SD.begin(PIN_CS)) {
+      sdCard = "SDCARD ON";
+    }else{
+      sdCard = "SDCARD OFF";  
+    }
+  Serial.println(sdCard);
 
   proses_api.tulisEprom(EID_IN,"ED1");
   proses_api.tulisEprom(EID_OUT,"ED2");
@@ -216,6 +222,8 @@ void setup() {
   if(DEBUG) debug();
 
   tools::printData2();
+  cekSignal();
+  cekModbus();
 }//setup
 
 void loop() {
@@ -225,6 +233,7 @@ void loop() {
 
   rutin::tarikDataLoger();
   rutin::resetMeteranDanEprom();
+
 
   if (clock.isAlarm1())
   {
@@ -239,19 +248,26 @@ void loop() {
     delay(1000);
   }
   
-  if(RecieveMessage()) {
-    fikturSMS();
-    kirimPesan();
+  if(sms::RecieveMessage()) {
+    sms::fikturSMS();
+    sms::kirimPesan();
   }
 
   TimetoSend();         //  Timer untuk ambil hapus sms dan flag ambil data modbus
-  // SHUTBERKALA();        //  Timer state 8
+  // SHUTBERKALA();     //  Timer state 8
   if (getmodbus){       //  youNowLah
+      
+      cekSignal();
+      rutin::sdLoger();
+      cekModbus();
+
+      delay(1000);
       GETmodbus();      //
       getmodbus=false;  // 
       if (proses_api.bacaDataEprom(EP_MODE)=="G328") send2serverEbet328();// 
       else send2serverEbet();
   }                     //
+
   FM="";
   FM.concat(freeMemory());
   ResetSim900A();       //  Untuk reset modul gsm
@@ -299,7 +315,7 @@ void send2serverEbet(){
     SendCommand("AT+CIPSTART=\"TCP\",\""+IPADDRESS+"\",\""+PORT+"\"\r\n",2000,S1debug);
     SendCommand("AT+CIPSTATUS\r\n",2000,S1debug);
     SendCommand("AT+CIPSEND\r\n",1000,S1debug);
-    SendCommand(modbuskwh_IN+"\r\n",1000,S1debug);
+    SendCommand(modbuskwh_IN,1000,S1debug);
     SendCipSend(6000);
     SendCommand("AT+CIPSHUT\r\n",2000,S1debug);
 
@@ -315,11 +331,9 @@ void send2serverEbet(){
     SendCommand("AT+CIPSTART=\"TCP\",\""+IPADDRESS+"\",\""+PORT+"\"\r\n",2000,S1debug);
     SendCommand("AT+CIPSTATUS\r\n",2000,S1debug);
     SendCommand("AT+CIPSEND\r\n",1000,S1debug);
-    SendCommand(modbuskwh_OUT+"\r\n",1000,S1debug);
+    SendCommand(modbuskwh_OUT,1000,S1debug);
     SendCipSend(6000);
     SendCommand("AT+CIPSHUT\r\n",2000,S1debug);
-
-    SendCommand("AT+CSQ\r\n",1000,S1debug);
 }//send2serverEbet()
 
 void send2serverEbet328(){
@@ -338,17 +352,21 @@ void send2serverEbet328(){
     SendCommand(modbuskwh_OUT,1000,S1debug);
     SendCipSend(6000);
     SendCommand("AT+CIPSHUT\r\n",2000,S1debug);
-    SendCommand("AT+CSQ\r\n",1000,S1debug);
 }//send2serverEbet()
 
 void SendCipSend(int timeout){
   wdt_reset();
-  Reply = "";
+  respondsend = "";
   Serial2.write(0x1A);
   delay(timeout);
-  if(Serial2.available()) {Reply = Serial2.readString();};   
+  if(Serial2.available()) { respondsend = Serial2.readString();};   
   Serial.print("response cipsend: ");
-  Serial.print(Reply);
+  Serial.println(respondsend);
+  if(respondsend.indexOf("SEND")>0) respondsend ="CONNECT";
+  else respondsend = "NOT CONNECT";
+  Serial.print("response cipsend: ");
+  Serial.println(respondsend);
+
 }//SendCipSend()
 
 void Timeout(){
@@ -379,6 +397,55 @@ void ResetSim900A(){
   Resetsim=false;
   }
 }//ResetSim900A()
+
+
+  int cekEror = 0;
+  void SendCommand(String command, const int timeout, boolean debug)
+  {
+    Serial2.print(command); 
+
+    // Reply = "";
+    // delay(timeout);
+    // if(Serial2.available()) Reply = Serial2.readString();
+
+    Reply = "";
+    unsigned long time = millis();
+    while ((millis()-time) < timeout ){
+        if(Serial2.available()) Reply = Serial2.readString();
+        // Reply += char(Serial2.read());
+    }
+
+    // if(Reply.indexOf("CSQ")>0)  Serial.println(Reply);
+
+    if      (Reply.indexOf("ERROR")>0)  { cekEror++; Serial.print("ERROR proses of>  "); Serial.println(command); }
+    else if (Reply.indexOf("OK")>0)     { cekEror=0; Serial.print("OK proses of>  "); Serial.println(command); }
+    else { 
+      cekEror++; 
+      Serial.print(cekEror); Serial.print("  "); 
+      Serial.println("SUCSES proses of>>  "); 
+      Serial.println(Reply); 
+      if(cekEror > 3) ResetSim900A();
+      }
+  }//SendCommand()
+
+void cekSignal(){
+    SendCommand("AT+CSQ\r\n",2000,S1debug);
+    // Serial.println(Reply);
+    int f,l;
+    f=Reply.indexOf("+CSQ:"); 
+    l=Reply.indexOf("\n",f);
+    csq = Reply.substring(f+6,l);
+    Serial.println(csq);
+}
+
+void cekModbus(){
+  MOBI = ID_IN+konversi::toIEEE(posix_get_2_Register(0x01,0x04,0x0578,0x0002));
+  MOBO = ID_OUT+konversi::toIEEE(posix_get_2_RegisterOut(0x02,0x04,0x0578,0x0002));
+  if(MOBI.indexOf("00000000")>0)MOBI = "nv"; else MOBI = "v";     
+  if(MOBO.indexOf("00000000")>0)MOBO = "nv"; else MOBO = "v";     
+  Serial.println(MOBI); 
+  Serial.println(MOBO);
+}//cekModbus()
 
 /*//PunyaATP
 void RecieveMessage(){

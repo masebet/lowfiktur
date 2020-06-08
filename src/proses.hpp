@@ -249,7 +249,7 @@ namespace tools
   String Waktu()
   {
     RTCDateTime now = clock.getDateTime();
-    return String(now.day+"-"+String(now.month+"-"+String(now.year)));
+    return String(now.day)+"/"+String(now.month)+"/"+String(now.year);
   }
 
   String tarif()
@@ -348,9 +348,8 @@ float posix_get_1_Register(uint8_t addres, uint8_t func, uint16_t reg, uint16_t 
 
 namespace rutin
 {
-
     void reset(){
-      if(tools::Hari()==1){
+      if(tools::Hari()==1&&tools::jamH()==10){
         posix_get_1_Register(0x01,0x05,0x0834,0xFF00);
         posix_get_1_RegisterOut(0x02,0x05,0x0834,0xFF00);
         proses_api.tulisEprom(WBP_IN, String(0.0));
@@ -370,17 +369,26 @@ namespace rutin
     }//reset()
 
    void resetMeteranDanEprom(){
-        // Serial.print(tools::Hari());Serial.print("  ");
-        // Serial.print(tools::jamH());Serial.print(":");
-        // Serial.print(tools::jamM());Serial.print(":");
-        // Serial.println(tools::jamD());
+      // Serial.print(tools::Hari());Serial.print("  ");
+      // Serial.print(tools::jamH());Serial.print(":");
+      // Serial.print(tools::jamM());Serial.print(":");
+      // Serial.println(tools::jamD());
 
-       if(tools::Hari()==1){
-          if(tools::jamH()==10&&tools::jamM()==0&&tools::jamD()<30){
-            reset();
-          }//if
-       }//if
+      if(tools::Hari()==1){
+        if(tools::jamH()==10&&tools::jamM()==0&&tools::jamD()<30){
+          reset();
+        }//if
+      }//if
     }//resetMeteranDanEprom()
+
+   void sdLoger(){
+    if (SD.begin(PIN_CS)) {
+      sdCard = "SDCARD ON";
+    }else{
+      sdCard = "SDCARD OFF";  
+    }
+    Serial.println(sdCard);
+   }//sdLoger()
 
    void logerData(String in){
 

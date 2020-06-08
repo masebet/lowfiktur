@@ -26,7 +26,7 @@
 #define ModIN_txPin 12
 #define ModIN_RS485_pin 13
 #define ModOUT_RS485_pin 10
-#define PinResetSIM900A 9
+#define PinResetSIM900A 9     //reset bukan restart
 #define PIN_CS 53
 #define PIN_INT 3
 
@@ -172,13 +172,14 @@ void setup() {
   
   // proses_api.tulisEprom(EP_MODE,"P164");  
   // proses_api.tulisEprom(EP_MODE,"G328");
-
   // proses_tulisEprom(EP_IP,"183.91.67.211");    //pasing riset text
   // proses_api.tulisEprom(EP_PORT,"15055");
 
+  // proses_api.tulisEprom(EP_MODE,"G328");
   // proses_tulisEprom(EP_IP,"110.50.86.220");    //parsing gabung dev
   // proses_api.tulisEprom(EP_PORT,"9017");
 
+  // proses_api.tulisEprom(EP_MODE,"P164"); 
   // proses_tulisEprom(EP_IP,"183.91.67.214");    //parsing java prod
   // proses_api.tulisEprom(EP_PORT,"9003");
 
@@ -219,6 +220,8 @@ void setup() {
 
 void loop() {
   wdt_reset();
+  // Serial.println(clock.readRegister8Ebet(0x0e),BIN);
+  // tools::printData2();
 
   rutin::tarikDataLoger();
   rutin::resetMeteranDanEprom();
@@ -326,8 +329,8 @@ void send2serverEbet328(){
     SendCommand("AT+CREG?\r\n",500,S1debug);
     SendCommand("AT+CGATT=1\r\n",1000,S1debug);
     SendCommand("AT+CSTT=\""+APN+"\",\"\",\"\"\r\n",2000,S1debug);
-    SendCommand("AT+CIICR\r\n",4000,S1debug);
-    SendCommand("AT+CIFSR\r\n",4000,S1debug);
+    SendCommand("AT+CIICR\r\n",2000,S1debug);
+    SendCommand("AT+CIFSR\r\n",2000,S1debug);
     SendCommand("AT+CIPSTART=\"TCP\",\""+IPADDRESS+"\",\""+PORT+"\"\r\n",2000,S1debug);
     SendCommand("AT+CIPSTATUS\r\n",2000,S1debug);
     SendCommand("AT+CIPSEND\r\n",1000,S1debug);
@@ -335,7 +338,6 @@ void send2serverEbet328(){
     SendCommand(modbuskwh_OUT,1000,S1debug);
     SendCipSend(6000);
     SendCommand("AT+CIPSHUT\r\n",2000,S1debug);
-
     SendCommand("AT+CSQ\r\n",1000,S1debug);
 }//send2serverEbet()
 

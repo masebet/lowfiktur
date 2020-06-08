@@ -306,14 +306,25 @@ namespace tools
     clock.begin();
     clock.armAlarm1(false);
     clock.clearAlarm1();
-    clock.writeRegister8Ebet(0xE,0b101);
+    clock.writeRegister8Ebet(0x0E,0b00000111); //0b00001110
+
+    // Serial.print(clock.readRegister8Ebet(0x00),BIN);
+    // Serial.print(clock.readRegister8Ebet(0x01),BIN);
+    // Serial.println(clock.readRegister8Ebet(0x02),BIN);
 
     // setTahun(2020);                      //
     // setBulan(6);                         //
     // setHari(1);                          //
     // setJam(10);                          //
-    // setMenit(0);                         //
-    clock.setAlarm1(1,10,0,10, DS3231_MATCH_DY_H_M_S);
+    // setMenit(0);
+
+    // setTahun(2020);                      //
+    // setBulan(6);                         //
+    // setHari(4);                          //
+    // setJam(18);                          //
+    // setMenit(47);
+
+    clock.setAlarm1(1,10,2,0, DS3231_MATCH_DY_H_M_S);
   }
 
   void printData2(){
@@ -323,7 +334,9 @@ namespace tools
     Serial.print(tools::jamH());Serial.print("-");
     Serial.print(tools::jamM());Serial.print("-");
     Serial.print(tools::jamD());Serial.print("  ");
-    Serial.print(tools::getDate());Serial.print("  ");
+    // Serial.print(tools::getDate();Serial.print("  ");
+    dt = clock.getDateTime();
+    Serial.print(dt.unixtime);Serial.print("  ");
     Serial.println();
   }
 

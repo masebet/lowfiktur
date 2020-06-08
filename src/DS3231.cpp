@@ -1119,7 +1119,8 @@ uint8_t DS3231::daysInMonth(uint16_t year, uint8_t month)
 
 uint16_t DS3231::date2days(uint16_t year, uint8_t month, uint8_t day)
 {
-    year = year - 2000;
+    //year = year - 2000;
+    if (year >= 2000) year -= 2000;
 
     uint16_t days16 = day;
 
@@ -1128,10 +1129,9 @@ uint16_t DS3231::date2days(uint16_t year, uint8_t month, uint8_t day)
         days16 += pgm_read_byte(daysArray + i - 1);
     }
 
-    if ((month == 2) && isLeapYear(year))
-    {
-        ++days16;
-    }
+    if (month > 2 && year % 4 == 0)++days16;
+
+//    if ((month == 2) && isLeapYear(year)) ++days16;
 
     return days16 + 365 * year + (year + 3) / 4 - 1;
 }
@@ -1141,8 +1141,10 @@ uint32_t DS3231::unixtime(void)
     uint32_t u;
 
     u = time2long(date2days(t.year, t.month, t.day), t.hour, t.minute, t.second);
-    u += 946681200;
-
+    u += 946684800;
+    //946771200;    //02/01/2000 @ 12:00am
+    //946684800;    //01/01/2000 @ 12:00am
+    //946681200;
     return u;
 }
 

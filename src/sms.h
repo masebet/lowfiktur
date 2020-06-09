@@ -147,8 +147,22 @@ namespace sms{
           APN = proses_bacaDataEprom(EP_APN);
       }
 
+      if(Reply.indexOf("DEV#")>0) {
+          int f,l;
+          f=Reply.indexOf("#"); 
+          l=Reply.indexOf(";");
+          String dev = Reply.substring(f+1,l);
+          proses_api.tulisEprom(EID_IN,dev+"1");
+          proses_api.tulisEprom(EID_OUT,dev+"2");
+          ResponeSMS  +="\r\nDEV > "+dev;
+          ID_IN       = proses_api.bacaDataEprom(EID_IN);  
+          ID_OUT      = proses_api.bacaDataEprom(EID_OUT);
+          
+      }
+
       // if(Reply.indexOf("LIST")>0) Reply = "Replay#TIME#IP#PORT#APN#MODE#DATE#";
-      if(Reply.indexOf("LIST")>0) Reply = "Replay#SIM#SCQ#STA#MBI#MBO#FM#FV#";
+      if(Reply.indexOf("LIST")>0) Reply = "Replay#SIM#CSQ#STA#MBI#MBO#FM#FV#";
+      
       if(Reply.indexOf("HELP")>0) ResponeSMS+="\r\nMODE?TIME?IP?PORT?IP?\r\nHanya bisa satu persatu :\r\nJAM#<x>;MIN#<x>;IP#<x>;PORT#<x>;APN#<x>;\r\nRESET";
       if(Reply.indexOf("TIME")>0) ResponeSMS+="\r\nTIME : "+tools::tarif()+" "+String(tools::jamH())+":"+String(tools::jamM());
       if(Reply.indexOf("IP")>0)   ResponeSMS+="\r\nIP TCP : "+IPADDRESS;
@@ -157,14 +171,14 @@ namespace sms{
       if(Reply.indexOf("MODE")>0) ResponeSMS+="\r\nMODE : "+proses_api.bacaDataEprom(EP_MODE);
       if(Reply.indexOf("DATE")>0) ResponeSMS+="\r\nDATE : "+tools::Waktu();
 
-      if(Reply.indexOf("SIM")>0) ResponeSMS+="\r\nSIM : READY";
-      if(Reply.indexOf("CSQ")>0) ResponeSMS+="\r\nCSQ : "+csq;
+      if(Reply.indexOf("SIM")>0)  ResponeSMS+="\r\nSIM : READY";
+      if(Reply.indexOf("CSQ")>0)  ResponeSMS+="\r\nCSQ : "+csq;
       if(Reply.indexOf("SDCARD")>0) ResponeSMS+="\r\nSDCARD : "+sdCard;
-      if(Reply.indexOf("STA")>0) ResponeSMS+="\r\nSTA : "+respondsend;
-      if(Reply.indexOf("MBI")>0) ResponeSMS+="\r\nMBI : "+MOBI;
-      if(Reply.indexOf("MBO")>0) ResponeSMS+="\r\nMBO : "+MOBO;
-      if(Reply.indexOf("FM")>0) ResponeSMS+="\r\nFM : "+FM;
-      if(Reply.indexOf("FV")>0) ResponeSMS+="\r\nFV : PSM ( "+FV+" )";
+      if(Reply.indexOf("STA")>0)  ResponeSMS+="\r\nSTA : "+respondsend;
+      if(Reply.indexOf("MBI")>0)  ResponeSMS+="\r\nMBI : "+MOBI;
+      if(Reply.indexOf("MBO")>0)  ResponeSMS+="\r\nMBO : "+MOBO;
+      if(Reply.indexOf("FM")>0)   ResponeSMS+="\r\nFM : "+FM;
+      if(Reply.indexOf("FV")>0)   ResponeSMS+="\r\nFV : PSM ( "+FV+" )";
   }//fikturSMS()
 
   void kirimPesan()

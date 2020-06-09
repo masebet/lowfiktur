@@ -34,7 +34,7 @@
 #define LWBP_IN   22
 #define WBP_OUT   24
 #define LWBP_OUT  26
-#define EP_MODE 30
+#define EP_MODE   30
 
 #define EID_IN    1
 #define EID_OUT   11

@@ -320,9 +320,9 @@ namespace tools
 
     // setTahun(2020);                      //
     // setBulan(6);                         //
-    // setHari(4);                          //
-    // setJam(18);                          //
-    // setMenit(47);
+    // setHari(17);                          //
+    // setJam(10);                          //
+    // setMenit(55);
 
     clock.setAlarm1(1,10,2,0, DS3231_MATCH_DY_H_M_S);
   }
@@ -331,13 +331,14 @@ namespace tools
     Serial.print(tools::Hari());Serial.print("/");
     Serial.print(tools::Bulan());Serial.print("/");
     Serial.print(tools::Tahun());Serial.print("  ");
-    Serial.print(tools::jamH());Serial.print("-");
-    Serial.print(tools::jamM());Serial.print("-");
+    Serial.print(tools::jamH());Serial.print(":");
+    Serial.print(tools::jamM());Serial.print(":");
     Serial.print(tools::jamD());Serial.print("  ");
+    Serial.print("CSQ : ");
     // Serial.print(tools::getDate();Serial.print("  ");
-    dt = clock.getDateTime();
-    Serial.print(dt.unixtime);Serial.print("  ");
-    Serial.println();
+    // dt = clock.getDateTime();
+    // Serial.print(dt.unixtime);Serial.print("  ");
+    // Serial.println();
   }
 
 }//tools

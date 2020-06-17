@@ -109,7 +109,7 @@ boolean getmodbus         =false;
 boolean SendDataKWH_IN    =false;
 boolean SendDataKWH_OUT   =false;
 boolean sender            =false;
-#define S1debug 1
+#define S1debug 0
 
 
 bool RecieveMessage();
@@ -128,7 +128,7 @@ void fikturSMS();
 void send2server();
 void send2serverEbet();
 void send2serverEbet328();
-void SendCommand(String command, const int timeout, boolean debug);
+bool SendCommand(String command, unsigned int timeout, boolean debug);
 void SendCipSend(int timeout);
 void Timeout();
 void READYSEND();
@@ -219,11 +219,10 @@ void setup() {
   SendCommand("AT+CNMI=3,3,0,0,0\r\n",500,S1debug); //
   SendCommand("AT+CMGD=1,4\r\n",500,S1debug);       //
   // SendCommand("AT+CMGDA=\"DEL ALL\"\r\n",500,S1debug);       //
-  if(DEBUG) debug();
 
-  tools::printData2();
   cekSignal();
   cekModbus();
+
 }//setup
 
 void loop() {
@@ -256,7 +255,6 @@ void loop() {
   TimetoSend();         //  Timer untuk ambil hapus sms dan flag ambil data modbus
   // SHUTBERKALA();     //  Timer state 8
   if (getmodbus){       //  youNowLah
-      
       cekSignal();
       rutin::sdLoger();
       cekModbus();
@@ -337,34 +335,67 @@ void send2serverEbet(){
 }//send2serverEbet()
 
 void send2serverEbet328(){
-    //Sent incoming
-    SendCommand("AT\r\n",250,S1debug);
-    SendCommand("AT+CPIN?\r\n",250,S1debug);
-    SendCommand("AT+CREG?\r\n",500,S1debug);
+    //SendCommand("AT+CPIN?\r\n",500,S1debug);
+    //SendCommand("AT+CREG?\r\n",500,S1debug);
     SendCommand("AT+CGATT=1\r\n",1000,S1debug);
-    SendCommand("AT+CSTT=\""+APN+"\",\"\",\"\"\r\n",2000,S1debug);
-    SendCommand("AT+CIICR\r\n",2000,S1debug);
-    SendCommand("AT+CIFSR\r\n",2000,S1debug);
-    SendCommand("AT+CIPSTART=\"TCP\",\""+IPADDRESS+"\",\""+PORT+"\"\r\n",2000,S1debug);
-    SendCommand("AT+CIPSTATUS\r\n",2000,S1debug);
-    SendCommand("AT+CIPSEND\r\n",1000,S1debug);
+    SendCommand("AT+CSTT=\""+APN+"\",\"\",\"\"\r\n",1000,S1debug);
+    SendCommand("AT+CIICR\r\n",5000,S1debug);
+  
+    SendCommand("AT+CIFSR\r\n",1000,S1debug);
+    SendCommand("AT+CIPSTART=\"TCP\",\""+IPADDRESS+"\",\""+PORT+"\"\r\n",1000,S1debug);
+    if(!SendCommand("AT+CIPSEND\r\n",1000,S1debug)){
+      SendCommand("AT+CIPSEND\r\n",1000,S1debug);
+    }
     SendCommand(modbuskwh_IN,1000,S1debug);
     SendCommand(modbuskwh_OUT,1000,S1debug);
-    SendCipSend(6000);
-    SendCommand("AT+CIPSHUT\r\n",2000,S1debug);
+    SendCipSend(5000);
+    //SendCommand("AT+CIPCLOSE\r\n",2000,S1debug);
+    
+    //SendCommand("AT+CIPSTATUS\r\n",2000,S1debug); 
+    SendCommand("AT+CIPSHUT\r\n",5000,S1debug);
+  
 }//send2serverEbet()
+
+  bool SendCommand(String command, unsigned int timeout, boolean debug)
+  {
+    Serial2.print(command); 
+
+    Reply = "";
+    // delay(timeout);
+    // if(Serial2.available()) {
+    //   Reply = Serial2.readString();
+    // }
+    
+    unsigned long time = millis();
+    while ((millis()-time) < timeout ){
+        if(Serial2.available()) Reply += (char) Serial2.read();//Reply = Serial2.readString();
+    }
+
+    if(debug){
+      Serial.print("\r\n================> "); 
+      Serial.println(command);
+      Serial.println(Reply);
+    }else{
+      if      (Reply.indexOf("ERROR")>0)  { Serial.print("ERROR proses of>  "); Serial.println(command); return 0;}
+      else if (Reply.indexOf("OK")>0)     { Serial.print("OK proses of>  "); Serial.println(command); return 1;}
+      else { Serial.println("SUCSES proses of>>  "); Serial.println(command); return 1;}
+    }
+    return 0;
+  }//SendCommand()
+
 
 void SendCipSend(int timeout){
   wdt_reset();
   respondsend = "";
   Serial2.write(0x1A);
   delay(timeout);
-  if(Serial2.available()) { respondsend = Serial2.readString();};   
+  if(Serial2.available()) { respondsend = Serial2.readString();}; 
   Serial.print("response cipsend: ");
   Serial.println(respondsend);
+
   if(respondsend.indexOf("SEND")>0) respondsend ="CONNECT";
   else respondsend = "NOT CONNECT";
-  Serial.print("response cipsend: ");
+  Serial.print("status: ");
   Serial.println(respondsend);
 
 }//SendCipSend()
@@ -391,50 +422,24 @@ void ResetSim900A(){
   if (Resetsim){
   Serial.println("Reset SIM900A");
   digitalWrite(PinResetSIM900A, LOW);
-  delay(3000);
+  delay(1000);
   digitalWrite(PinResetSIM900A, HIGH);
-  delay(4000);
+  delay(1000);
+  digitalWrite(PinResetSIM900A, LOW);
+  delay(1000);
+  digitalWrite(PinResetSIM900A, HIGH);
+  delay(1000);
   Resetsim=false;
   }
 }//ResetSim900A()
 
-
-  int cekEror = 0;
-  void SendCommand(String command, const int timeout, boolean debug)
-  {
-    Serial2.print(command); 
-
-    // Reply = "";
-    // delay(timeout);
-    // if(Serial2.available()) Reply = Serial2.readString();
-
-    Reply = "";
-    unsigned long time = millis();
-    while ((millis()-time) < timeout ){
-        if(Serial2.available()) Reply = Serial2.readString();
-        // Reply += char(Serial2.read());
-    }
-
-    // if(Reply.indexOf("CSQ")>0)  Serial.println(Reply);
-
-    if      (Reply.indexOf("ERROR")>0)  { cekEror++; Serial.print("ERROR proses of>  "); Serial.println(command); }
-    else if (Reply.indexOf("OK")>0)     { cekEror=0; Serial.print("OK proses of>  "); Serial.println(command); }
-    else { 
-      cekEror++; 
-      Serial.print(cekEror); Serial.print("  "); 
-      Serial.println("SUCSES proses of>>  "); 
-      Serial.println(Reply); 
-      if(cekEror > 3) ResetSim900A();
-      }
-  }//SendCommand()
-
 void cekSignal(){
     SendCommand("AT+CSQ\r\n",2000,S1debug);
-    // Serial.println(Reply);
     int f,l;
     f=Reply.indexOf("+CSQ:"); 
     l=Reply.indexOf("\n",f);
     csq = Reply.substring(f+6,l);
+    tools::printData2();
     Serial.println(csq);
 }
 

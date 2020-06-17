@@ -1,18 +1,13 @@
 namespace sms{
 
-  void SendCommand(String command, const int timeout, boolean debug)
+  void SendCommand(String command, unsigned int timeout, boolean debug)
   {
     Serial2.print(command); 
-
-    // Reply = "";
-    // delay(timeout);
-    // if(Serial2.available()) Reply = Serial2.readString();
 
     Reply = "";
     unsigned long time = millis();
     while ((millis()-time) < timeout ){
-        if(Serial2.available()) Reply = Serial2.readString();
-        // Reply += char(Serial2.read());
+        if(Serial2.available())  Reply += (char) Serial2.read(); //Reply = Serial2.readString();
     }
 
     if      (Reply.indexOf("ERROR")>0)  { Serial.print("ERROR proses of>  "); Serial.println(command); }
@@ -61,6 +56,18 @@ namespace sms{
         proses_api.tulisEprom(WBP_OUT, String(0.0));
         proses_api.tulisEprom(LWBP_OUT, String(0.0));
         ResponeSMS+="\r\nRESET ALL OK";
+      }
+
+      if(Reply.indexOf("KILL")>0) {
+        ResetSim900A();
+        Serial2.write(0x1A);
+      SendCommand("AT\r\n",500,S1debug);
+        ResetSim900A();
+        Serial2.write(0x1A);
+        SendCommand("AT\r\n",500,S1debug);
+        ResetSim900A();
+        Serial2.write(0x1A);
+        SendCommand("AT\r\n",500,S1debug);
       }
 
       if(Reply.indexOf("MODE#")>0) {
@@ -192,20 +199,9 @@ namespace sms{
       sender_phone="";
       sms::SendCommand("AT\r\n",250,S1debug);
       sms::SendCommand("AT+CMGD=1,4\r\n",500,S1debug);
+      ResetSim900A();
+      sms::SendCommand("AT\r\n",250,S1debug);
+      sms::SendCommand("AT+CMGD=1,4\r\n",500,S1debug);
   }//kirimPesan()
 
 }//sms
-
-bool DEBUG =0;
-void debug()
-{
-
-  while(1){
-  if(sms::RecieveMessage()) {
-    sms::fikturSMS();
-    sms::kirimPesan();
-  }
-  
-    delay(1000);
-  }
-}//debug()

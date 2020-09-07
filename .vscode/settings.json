@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.linux": {
+        "PATH": "/home/karebet/.platformio/penv/bin:/home/karebet/.platformio/penv:/home/karebet/bin:/home/karebet/.local/bin:/opt/gradle/gradle-5.2.1/bin:/home/karebet/bin:/home/karebet/.local/bin:/opt/gradle/gradle-5.2.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/karebet/oprekUbuntu/android-ndk-r20b",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}

@@ -1,6 +1,10 @@
 #include <Arduino.h>
 #include <avr/eeprom.h> //========================================= EPROM API 
 
+namespace rutin{
+  void logerDataExel(String in);
+}
+
 class DataEprom{
   private:                                                              //==========contoh=============
   int c;                                                                // harus masuk fungsi
@@ -52,11 +56,10 @@ class DataEprom{
   }
 
 };
-DataEprom proses_api;
+  DataEprom proses_api;
 
 
-  inline void 
-  proses_tulisEprom(int ngone,String isine)
+  inline void proses_tulisEprom(int ngone,String isine)
   {   
     String hasile="";
     unsigned int adde; 
@@ -67,8 +70,7 @@ DataEprom proses_api;
     }
   }
 
-  inline String 
-  proses_bacaDataEprom(int ngone)
+  inline String proses_bacaDataEprom(int ngone)
   {
     String hasile="";
     unsigned int adde; 
@@ -84,27 +86,18 @@ DataEprom proses_api;
     return hasile;
   }
 
-
-
-
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
 
 String printHexDate(uint32_t num, int precision);
 
-namespace konversi
-{
+namespace konversi {
 	typedef union {
 
 		float f;
 		struct
 		{
-			// Order is important.
-			// Here the members of the union data structure
-			// use the same memory (32 bits).
-			// The ordering is taken
-			// from the LSB to the MSB.
 			unsigned long mantissa : 23;
 			unsigned int exponent : 8;
 			unsigned int sign : 1;
@@ -112,99 +105,30 @@ namespace konversi
 		} raw;
 	} myfloat;
 
-	// Driver Code
-	String toIEEE(float input)
-	{
-    //Serial.println(input);
-		myfloat var;
-    var.f = input;
-    uint32_t output = (uint32_t)var.raw.sign << 31|(uint32_t)var.raw.exponent<<23|(uint32_t)var.raw.mantissa;
-    // Serial.println(output,HEX);
-    return printHexDate(output,8);
-	}//toIEEE()
-  
-  float toHUMAN(uint32_t input)
+  uint32_t toHUMAN(uint32_t input)
 	{
 		myfloat varh;
 		varh.raw.mantissa = input;
 		varh.raw.exponent = input>>23;
 		varh.raw.sign = input>>31;
-    // Serial.println(varh.f);
     return varh.f;
   }//toHUMAN()
+
+	String toIEEE(uint32_t input)
+	{
+    rutin::logerDataExel(String(input)+"\t");   
+    myfloat var;
+    var.f =  (float) input;
+    uint32_t output = (uint32_t)var.raw.sign << 31|(uint32_t)var.raw.exponent<<23|(uint32_t)var.raw.mantissa;
+    return printHexDate(output,8);
+	}//toIEEE()
+
 }//konversi
-
-/*
-#include "RTClib.h"
-RTC_DS3231 rtc;
-namespace tools
-{
-  String getDate()
-  {
-    DateTime now = rtc.now();
-    return printHexDate(now.unixtime()-820454400,8); //data dikurangi 26 tahun
-  }
-
-  int jamH()
-  {
-    DateTime now = rtc.now();
-    return (int)now.hour();
-  }
-
-  int jamM()
-  {
-    DateTime now = rtc.now();
-    return (int) now.minute();
-  }
-
-  int jamD(){
-    DateTime now = rtc.now();
-    return (int) now.second();  
-  }
-
-  int Hari()
-  {
-    DateTime now = rtc.now();
-    return (int) now.day();
-  }
-
-  int Bulan()
-  {
-    DateTime now = rtc.now();
-    return (int) now.month();
-  }
-
-  int Tahun()
-  {
-    DateTime now = rtc.now();
-    return (int) now.year();
-  }
-
-  String Waktu()
-  {
-    DateTime now = rtc.now();
-    return String(now.day())+"-"+String(now.month())+"-"+String(now.year());
-  }
-
-  String tarif()
-  {
-    if (jamH()==17)return "WBP";
-    if (jamH()==18)return "WBP";
-    if (jamH()==19)return "WBP";
-    if (jamH()==20)return "WBP";
-    if (jamH()==21)return "WBP";
-    if (jamH()==22)return "WBP";
-    return "LWBP";
-  }
-
-}//tools
-*/
 
 #include <DS3231.h>
 DS3231 clock;
 RTCDateTime dt;
-namespace tools
-{
+namespace tools {
   String getDate()
   {
     dt = clock.getDateTime();
@@ -249,7 +173,7 @@ namespace tools
   String Waktu()
   {
     RTCDateTime now = clock.getDateTime();
-    return String(now.day)+"/"+String(now.month)+"/"+String(now.year);
+    return String(now.day)+"/"+String(now.month)+"/"+String(now.year)+" "+String(now.hour)+":"+String(now.minute)+":"+String(now.second);
   }
 
   String tarif()
@@ -287,13 +211,14 @@ namespace tools
   boolean isAlarm = false;
   void alarmFunction()
   {
-    Serial.println("*** INT PIN 3 ***");
+    if(S1debug){}else{Serial.println("*** INT PIN 3 ***");}
     isAlarm = true;
+    return;
   }
 
   bool alaramIsOn(){
     if (tools::isAlarm){
-       //Serial.println(clock.readRegister8Ebet(0xE),BIN);
+      if(S1debug){}else{Serial.println(clock.readRegister8Ebet(0xE),BIN);}
       tools::isAlarm = !tools::isAlarm;
       clock.clearAlarm1();
       return 1;
@@ -303,38 +228,39 @@ namespace tools
   }
   
   void alaramBegin(){
-    clock.begin();
-    clock.armAlarm1(false);
-    clock.clearAlarm1();
-    clock.writeRegister8Ebet(0x0E,0b00000111); //0b00001110
+    // clock.begin();
+
+    // //=====Date
+    // setTahun(2020);
+    // setBulan(9);
+    // setHari(2);
+    // //=====time
+    // setJam(9);
+    // setMenit(59);
+
+
+    // pinMode(PIN_INT, INPUT_PULLUP);
+    // attachInterrupt(digitalPinToInterrupt(PIN_INT), tools::alarmFunction, FALLING);
+    // clock.writeRegister8Ebet(0x0E,0b00000111); //0b00001110
+    // clock.armAlarm1(false);
+    // clock.clearAlarm1();
+    // clock.setAlarm1(1,10,0,15, DS3231_MATCH_DY_H_M_S);
+
 
     // Serial.print(clock.readRegister8Ebet(0x00),BIN);
     // Serial.print(clock.readRegister8Ebet(0x01),BIN);
     // Serial.println(clock.readRegister8Ebet(0x02),BIN);
-
-    // setTahun(2020);                      //
-    // setBulan(6);                         //
-    // setHari(1);                          //
-    // setJam(10);                          //
-    // setMenit(0);
-
-    // setTahun(2020);                      //
-    // setBulan(6);                         //
-    // setHari(17);                          //
-    // setJam(10);                          //
-    // setMenit(55);
-
-    clock.setAlarm1(1,10,2,0, DS3231_MATCH_DY_H_M_S);
+  
   }
 
   void printData2(){
     Serial.print(tools::Hari());Serial.print("/");
     Serial.print(tools::Bulan());Serial.print("/");
     Serial.print(tools::Tahun());Serial.print("  ");
+
     Serial.print(tools::jamH());Serial.print(":");
     Serial.print(tools::jamM());Serial.print(":");
     Serial.print(tools::jamD());Serial.print("  ");
-    Serial.print("CSQ : ");
     // Serial.print(tools::getDate();Serial.print("  ");
     // dt = clock.getDateTime();
     // Serial.print(dt.unixtime);Serial.print("  ");
@@ -343,21 +269,40 @@ namespace tools
 
 }//tools
 
-
 float posix_get_1_RegisterOut(uint8_t addres, uint8_t func, uint16_t reg, uint16_t reg2);
 float posix_get_1_Register(uint8_t addres, uint8_t func, uint16_t reg, uint16_t reg2);
 
-namespace rutin
-{
-    void reset(){
-      if(tools::Hari()==1&&tools::jamH()==10){
+namespace rutin {
+
+   void reset(int hari,int jam,int menit){
+      if(tools::Hari()==hari&&tools::jamH()==jam&&tools::jamM()<menit+5){
+        Serial.println("reset Modbus");
         posix_get_1_Register(0x01,0x05,0x0834,0xFF00);
-        posix_get_1_RegisterOut(0x02,0x05,0x0834,0xFF00);
+        posix_get_1_Register(0x02,0x05,0x0834,0xFF00);
+        posix_get_1_Register(0x08,0x05,0x0834,0xFF00);
+        delay(1000);
+        posix_get_1_Register(0x01,0x05,0x0834,0xFF00);
+        posix_get_1_Register(0x02,0x05,0x0834,0xFF00);
+        posix_get_1_Register(0x08,0x05,0x0834,0xFF00);
+        //posix_get_1_RegisterOut(0x02,0x05,0x0834,0xFF00);
+        delay(60000);
+        Serial.println("reset Eprom 8 bit");
+        proses_api.tulisEprom(WBP_BIF, String(0.0));
+        proses_api.tulisEprom(LWBP_BIF, String(0.0));
         proses_api.tulisEprom(WBP_IN, String(0.0));
         proses_api.tulisEprom(LWBP_IN, String(0.0));
         proses_api.tulisEprom(WBP_OUT, String(0.0));
         proses_api.tulisEprom(LWBP_OUT, String(0.0));
-        
+        delay(60000);
+        Serial.println("reset Eprom 16 bit");
+        proses_tulisEprom(WBP_BIF16, String(0.0));
+        proses_tulisEprom(LWBP_BIF16, String(0.0));
+        proses_tulisEprom(WBP_IN16, String(0.0));
+        proses_tulisEprom(LWBP_IN16, String(0.0));
+        proses_tulisEprom(WBP_OUT16, String(0.0));
+        proses_tulisEprom(LWBP_OUT16, String(0.0));
+        delay(60000);
+        Serial.println("reset LOG paket");
         for(int b=1;b<=12;b++){
           String dir =String(tools::Tahun()-2);
           for(int i=1;i<=31;i++){
@@ -366,21 +311,20 @@ namespace rutin
           SD.rmdir(dir+"/"+String(b));
           SD.rmdir(dir);
         }//for
-      }
-    }//reset()
-
-   void resetMeteranDanEprom(){
-      // Serial.print(tools::Hari());Serial.print("  ");
-      // Serial.print(tools::jamH());Serial.print(":");
-      // Serial.print(tools::jamM());Serial.print(":");
-      // Serial.println(tools::jamD());
-
-      if(tools::Hari()==1){
-        if(tools::jamH()==10&&tools::jamM()==0&&tools::jamD()<30){
-          reset();
-        }//if
+        delay(60000);
+        Serial.println("reset LOG EXEL");
+        for(int b=1;b<=12;b++){
+          String dir ="EXEL/"+String(tools::Tahun()-2);
+          for(int i=1;i<=31;i++){
+            SD.remove(dir+"/"+String(b)+"/"+String(i)+".TXT");   
+          }
+          SD.rmdir(dir+"/"+String(b));
+          SD.rmdir(dir);
+        }//for
+        delay(60000);
       }//if
-    }//resetMeteranDanEprom()
+      return;
+   }//reset()
 
    void sdLoger(){
     if (SD.begin(PIN_CS)) {
@@ -388,11 +332,11 @@ namespace rutin
     }else{
       sdCard = "SDCARD OFF";  
     }
-    Serial.println(sdCard);
+    if(S1debug){}else{Serial.println(sdCard);}
    }//sdLoger()
 
    void logerData(String in){
-
+      if(sdCard != "SDCARD ON") return;
       String dir = String(tools::Tahun());
       if(!SD.exists(dir)){
         SD.mkdir(dir);
@@ -407,7 +351,30 @@ namespace rutin
         myFile.println(in);
         myFile.close();
       }
+   }//logerData()
 
+   void logerDataExel(String in){
+      if(sdCard != "SDCARD ON") return;
+      String dir = "EXEL";
+      if(!SD.exists(dir)){
+        SD.mkdir(dir);
+      }
+
+      dir = String(tools::Tahun());
+      if(!SD.exists(dir)){
+        SD.mkdir(dir);
+      }
+
+      dir = "EXEL/"+String(tools::Tahun())+"/"+String(tools::Bulan());
+      if(!SD.exists(dir)){
+      SD.mkdir(dir);  
+      }
+      
+      myFile = SD.open("EXEL/"+String(tools::Tahun())+"/"+String(tools::Bulan())+"/"+String(tools::Hari())+".TXT", FILE_WRITE);
+      if (myFile) {
+        myFile.print(in);
+        myFile.close();
+      }
    }//logerData()
 
    void tarikDataLoger(){
@@ -426,19 +393,12 @@ namespace rutin
           while (myFile.available()) {
             char buffData = myFile.read();
             Serial.write(buffData);
-            if(buffData =='\n')break;
+            //if(buffData =='\n')break;
           }
           myFile.close();
         } 
         Serial.println("<END>");
       }
    }//tarikDataLoger()
-
-   void cekSDCard(){
-    if (SD.begin(PIN_CS)) {
-      Serial.println("ini bisa");
-    }else{
-      Serial.println("ini tidak bisa");  
-    }
-   }//cekSDCard()
+   
 }//rutin
